@@ -1,0 +1,3600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Wheel Kinematics Visualizer (2D & 3D Infinite Environment)</title>
+  <style>
+    :root {
+      --bg-dark: #080b11;
+      --bg-bar: rgba(13, 18, 28, 0.96);
+      --bg-card: rgba(19, 27, 42, 0.9);
+      --bg-popover: #111724;
+      --border-color: rgba(64, 93, 138, 0.35);
+      --border-focus: #00d2ff;
+      --text-main: #f0f4f8;
+      --text-muted: #8ba0b6;
+      --accent-cyan: #00e5ff;
+      --accent-amber: #ffb703;
+      --accent-green: #00f59b;
+      --accent-red: #ff3366;
+      --accent-bike: #38bdf8;
+      --axis-x: #ef4444;
+      --axis-y: #22c55e;
+      --axis-z: #3b82f6;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: "SF Mono", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ============================================================
+       TOP HEADER: COMPACT, WRAPPABLE & JIGGLE-FREE
+       ============================================================ */
+    header {
+      min-height: 44px;
+      background: var(--bg-bar);
+      border-bottom: 1px solid var(--border-color);
+      padding: 4px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      z-index: 25;
+      backdrop-filter: blur(12px);
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .brand-icon {
+      width: 20px;
+      height: 20px;
+      border: 2.5px solid var(--accent-cyan);
+      border-radius: 50%;
+      position: relative;
+      animation: spin 8s linear infinite;
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+      flex-shrink: 0;
+    }
+
+    .brand-icon::after {
+      content: "";
+      position: absolute;
+      top: 1px;
+      left: 5px;
+      width: 3.5px;
+      height: 3.5px;
+      background: var(--accent-cyan);
+      border-radius: 50%;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .brand-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #fff;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .brand-sub {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-weight: 400;
+      text-transform: none;
+    }
+
+    @media (max-width: 650px) {
+      .brand-sub { display: none; }
+    }
+
+    /* Motion Status Badge */
+    .motion-status-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      width: 140px;
+      text-align: center;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+      flex-shrink: 0;
+    }
+
+    .status-badge.warning {
+      border-color: rgba(255, 183, 3, 0.5);
+      background: rgba(255, 183, 3, 0.1);
+    }
+    .status-badge.warning .status-dot {
+      background: var(--accent-amber);
+      box-shadow: 0 0 8px var(--accent-amber);
+    }
+
+    .status-badge.aliasing {
+      border-color: rgba(255, 51, 102, 0.6);
+      background: rgba(255, 51, 102, 0.15);
+      animation: pulseAlert 1s infinite alternate;
+    }
+    .status-badge.aliasing .status-dot {
+      background: var(--accent-red);
+      box-shadow: 0 0 10px var(--accent-red);
+    }
+
+    @keyframes pulseAlert {
+      from { opacity: 0.85; }
+      to { opacity: 1; }
+    }
+
+    /* Header Right */
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .view-mode-toggle {
+      display: inline-flex;
+      background: rgba(10, 14, 22, 0.9);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .view-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 3px 9px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .view-btn:hover { color: #fff; }
+
+    .view-btn.active {
+      background: var(--accent-cyan);
+      color: #000;
+      box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+    }
+
+    .timing-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.73rem;
+      color: var(--text-muted);
+    }
+
+    .timing-val {
+      color: #fff;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      display: inline-block;
+      text-align: right;
+    }
+
+    #dtReadout { width: 44px; }
+    #fpsReadout { width: 34px; }
+
+    /* ============================================================
+       CANVAS VIEWPORT & 3D CAMERA CONTROLS
+       ============================================================ */
+    .viewport-panel {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      background: radial-gradient(circle at 50% 35%, #131a26 0%, #06090e 100%);
+      display: flex;
+      overflow: hidden;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .viewport-panel:active { cursor: grabbing; }
+
+    canvas#wheelCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    /* HUD Chips */
+    .canvas-hud-topleft {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      pointer-events: none;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      z-index: 5;
+      max-width: calc(100% - 140px);
+    }
+
+    .hud-chip {
+      background: rgba(12, 17, 27, 0.85);
+      border: 1px solid rgba(64, 93, 138, 0.45);
+      border-radius: 6px;
+      padding: 4px 8px;
+      backdrop-filter: blur(8px);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .hud-chip .label {
+      color: var(--text-muted);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .hud-chip .val-row {
+      display: flex;
+      align-items: baseline;
+      gap: 3px;
+    }
+
+    .hud-chip .val {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hud-chip .unit {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    .bike-badge {
+      border-color: rgba(56, 189, 248, 0.5);
+      background: rgba(14, 30, 48, 0.88);
+    }
+    .bike-badge .val { color: var(--accent-bike); }
+
+    /* 3D Camera Toolbar */
+    .camera-toolbar {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 10;
+    }
+
+    .camera-toolbar.visible { display: flex; }
+
+    .cam-btn-group {
+      display: flex;
+      background: rgba(12, 17, 27, 0.88);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+      backdrop-filter: blur(8px);
+    }
+
+    .cam-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 3px 7px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      transition: all 0.15s ease;
+    }
+
+    .cam-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+    .cam-btn.active { background: var(--accent-cyan); color: #000; }
+
+    .canvas-hint {
+      position: absolute;
+      bottom: 10px;
+      right: 12px;
+      pointer-events: none;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      background: rgba(10, 14, 22, 0.7);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(64, 93, 138, 0.25);
+    }
+
+    .aliasing-alert-floating {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 51, 102, 0.2);
+      border: 1px solid rgba(255, 51, 102, 0.6);
+      border-radius: 20px;
+      padding: 5px 14px;
+      color: #ff99aa;
+      font-size: 0.72rem;
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      gap: 6px;
+      z-index: 10;
+      animation: fadeIn 0.2s ease;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .aliasing-alert-floating.active { display: flex; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translate(-50%, -4px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    /* ============================================================
+       BOTTOM DOCKED CONSOLE
+       ============================================================ */
+    .bottom-dock {
+      background: var(--bg-bar);
+      border-top: 1px solid var(--border-color);
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 12px;
+      z-index: 20;
+      backdrop-filter: blur(16px);
+      flex-wrap: wrap;
+      max-height: 42vh;
+      overflow-y: auto;
+    }
+
+    .dock-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .dock-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 5px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 155px;
+      flex-shrink: 0;
+    }
+
+    .dock-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .stepper-box {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(10, 14, 22, 0.9);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      overflow: hidden;
+      height: 24px;
+    }
+
+    .stepper-box:focus-within { border-color: var(--border-focus); }
+
+    .stepper-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      width: 20px;
+      height: 100%;
+      font-size: 0.9rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stepper-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+    input[type="number"] {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 700;
+      width: 48px;
+      text-align: center;
+      padding: 2px;
+      outline: none;
+      -moz-appearance: textfield;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .unit-tag {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      padding-right: 5px;
+      font-family: var(--font-mono);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 6px rgba(0, 229, 255, 0.6);
+      border: 1.5px solid #fff;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 6px rgba(0, 229, 255, 0.6);
+      border: 1.5px solid #fff;
+    }
+
+    .btn-cluster {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .tool-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 5px 9px;
+      border-radius: 5px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      height: 28px;
+    }
+
+    .tool-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--border-focus);
+    }
+
+    .tool-btn.active {
+      background: var(--accent-cyan);
+      color: #000;
+      font-weight: 700;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 8px rgba(0, 229, 255, 0.35);
+    }
+
+    .tool-btn.highlight {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-bike);
+      color: var(--accent-bike);
+    }
+
+    .tool-btn.highlight:hover {
+      background: var(--accent-bike);
+      color: #000;
+    }
+
+    .tool-btn.danger:hover {
+      background: var(--accent-red);
+      color: #fff;
+      border-color: var(--accent-red);
+    }
+
+    .segmented-scale {
+      display: inline-flex;
+      background: rgba(10, 14, 22, 0.9);
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      padding: 2px;
+      gap: 2px;
+      height: 28px;
+    }
+
+    .scale-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 2px 6px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      transition: all 0.15s ease;
+    }
+
+    .scale-btn:hover { color: #fff; }
+    .scale-btn.active { background: var(--accent-cyan); color: #000; font-weight: 700; }
+
+    /* Popover Panels */
+    .popover-container {
+      position: absolute;
+      bottom: 54px;
+      right: 14px;
+      background: var(--bg-popover);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
+      z-index: 50;
+      backdrop-filter: blur(16px);
+      width: 330px;
+      max-width: calc(100vw - 28px);
+      max-height: 72vh;
+      overflow-y: auto;
+      display: none;
+      animation: popoverIn 0.18s ease;
+    }
+
+    .popover-container.open { display: block; }
+
+    @keyframes popoverIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .popover-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .popover-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .popover-close:hover { color: #fff; }
+
+    .bike-comparison-box {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .bike-comparison-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--accent-bike);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .bike-stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 0.75rem;
+      margin-bottom: 4px;
+    }
+
+    .bike-ratio-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.75rem;
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--accent-bike);
+    }
+
+    .speed-ladder {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .speed-ladder-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 9px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .speed-ladder-item:hover {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.4);
+      transform: translateX(2px);
+    }
+
+    .speed-ladder-item.active-bike {
+      border-color: var(--accent-bike);
+      background: rgba(56, 189, 248, 0.18);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+    }
+
+    .preset-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .preset-item {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      padding: 6px 8px;
+      font-size: 0.75rem;
+      color: var(--text-main);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.15s ease;
+    }
+
+    .preset-item:hover {
+      background: rgba(0, 229, 255, 0.15);
+      border-color: var(--accent-cyan);
+    }
+
+    .preset-item .tag {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--accent-cyan);
+    }
+
+    .layer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .mini-switch {
+      position: relative;
+      display: inline-block;
+      width: 32px;
+      height: 16px;
+    }
+
+    .mini-switch input { opacity: 0; width: 0; height: 0; }
+
+    .mini-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .2s;
+      border-radius: 16px;
+    }
+
+    .mini-slider:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+
+    input:checked + .mini-slider { background-color: var(--accent-cyan); }
+    input:checked + .mini-slider:before { transform: translateX(16px); background-color: #0a0d14; }
+
+    .toast {
+      position: fixed;
+      top: 55px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-10px);
+      background: #00e5ff;
+      color: #000;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 0.78rem;
+      box-shadow: 0 6px 20px rgba(0, 229, 255, 0.4);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+      z-index: 200;
+    }
+
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-content {
+      background: #111723;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 18px;
+      max-width: 420px;
+      width: 100%;
+    }
+    .card-guide {
+      width: 100%;
+      height: 48px;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #fff;
+      margin: 10px 0;
+      border: 1px dashed rgba(255, 255, 255, 0.4);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       TOP HEADER: COMPACT, WRAPPABLE, JIGGLE-FREE
+       ============================================================ -->
+  <header>
+    <!-- Brand -->
+    <div class="brand-section">
+      <div class="brand-icon"></div>
+      <div class="brand-title">
+        Wheel Kinematics <span class="brand-sub">Real-Time Drivetrain Simulator</span>
+      </div>
+    </div>
+
+    <!-- Center: Faithful Motion Status -->
+    <div class="motion-status-wrap">
+      <div class="status-badge" id="aliasingBadge">
+        <span class="status-dot"></span>
+        <span id="aliasingText">Faithful Motion</span>
+      </div>
+    </div>
+
+    <!-- Right: 2D/3D Mode Switcher + Isolated Timing -->
+    <div class="header-right">
+      <div class="view-mode-toggle" title="Toggle between 2D Elevation View and 3D Entity Perspective View (Shortcut: V)">
+        <button class="view-btn active" id="btnView2D">2D Road</button>
+        <button class="view-btn" id="btnView3D">3D Highway 🌐</button>
+      </div>
+
+      <div class="timing-section">
+        <span>dt:</span>
+        <span class="timing-val" id="dtReadout">16.7ms</span>
+        <span style="opacity: 0.3;">|</span>
+        <span>FPS:</span>
+        <span class="timing-val" id="fpsReadout">60</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       CANVAS VIEWPORT
+       ============================================================ -->
+  <div class="viewport-panel" id="viewportContainer">
+    <canvas id="wheelCanvas"></canvas>
+
+    <!-- Top Left HUD -->
+    <div class="canvas-hud-topleft">
+      <div class="hud-chip">
+        <span class="label">Linear Speed (v)</span>
+        <div class="val-row">
+          <span class="val" id="hudLinearMs">0.31</span>
+          <span class="unit">m/s</span>
+          <span style="opacity: 0.4; margin: 0 2px;">•</span>
+          <span class="val" id="hudLinearKmh" style="color: var(--accent-green);">1.1</span>
+          <span class="unit">km/h</span>
+        </div>
+      </div>
+
+      <!-- Bike Comparison HUD Chip -->
+      <div class="hud-chip bike-badge" id="hudBikeBadge" title="Comparison with adjustable bicycle speed">
+        <span class="label" id="hudBikeTitle" style="color: var(--accent-bike);">🚲 vs Bicycle (20 km/h)</span>
+        <div class="val-row">
+          <span class="val" id="hudBikeRatio">0.06&times;</span>
+          <span class="unit" id="hudBikeDiff" style="color: #93c5fd;">(-18.9 km/h)</span>
+        </div>
+      </div>
+
+      <div class="hud-chip">
+        <span class="label">Angular (&omega;)</span>
+        <div class="val-row">
+          <span class="val" id="hudOmega">6.28</span>
+          <span class="unit">rad/s</span>
+          <span style="opacity: 0.4; margin: 0 2px;">•</span>
+          <span class="val" id="hudDegSec" style="color: var(--accent-amber);">360</span>
+          <span class="unit">&deg;/s</span>
+        </div>
+      </div>
+
+      <div class="hud-chip">
+        <span class="label">Visual Scale (R)</span>
+        <div class="val-row">
+          <span class="val" id="hudDrawnR">75</span>
+          <span class="unit">px</span>
+          <span style="opacity: 0.4; margin: 0 2px;">•</span>
+          <span class="val" id="hudRimSpeedPx" style="color: #cbd5e1;">471</span>
+          <span class="unit">px/s</span>
+        </div>
+      </div>
+
+      <div class="hud-chip">
+        <span class="label">Distance</span>
+        <div class="val-row">
+          <span class="val" id="hudDist">0.00</span>
+          <span class="unit">m</span>
+          <span style="opacity: 0.4; margin: 0 2px;">•</span>
+          <span class="val" id="hudRevs" style="color: #cbd5e1;">0.0</span>
+          <span class="unit">turns</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3D Camera Toolbar -->
+    <div class="camera-toolbar" id="cameraToolbar">
+      <div class="cam-btn-group" title="Camera view presets">
+        <button class="cam-btn active" data-view="iso">3/4 ISO</button>
+        <button class="cam-btn" data-view="side">Side</button>
+        <button class="cam-btn" data-view="front">Front (Axle)</button>
+        <button class="cam-btn" data-view="top">Top</button>
+        <button class="cam-btn" data-view="reset">↺ Reset</button>
+      </div>
+    </div>
+
+    <div class="canvas-hint" id="canvasHint">🖐 Drag to spin | 3D: Orbit camera, scroll to zoom</div>
+
+    <!-- Aliasing Warning -->
+    <div class="aliasing-alert-floating" id="aliasingAlert">
+      <span>⚠️ <strong>Aliasing Detected:</strong> Screen refresh rate cannot resolve true rotation. Switch to slow motion below.</span>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       BOTTOM DOCKED CONSOLE
+       ============================================================ -->
+  <div class="bottom-dock">
+
+    <!-- Group 1: RPM & Tyre Diameter -->
+    <div class="dock-group">
+      <!-- RPM Card -->
+      <div class="dock-card">
+        <div class="dock-card-header">
+          <span>Wheel Speed</span>
+          <div class="stepper-box">
+            <button class="stepper-btn" id="rpmMinusBtn">&minus;</button>
+            <input type="number" id="rpmInput" value="60" min="0" max="2500" step="1">
+            <span class="unit-tag">RPM</span>
+            <button class="stepper-btn" id="rpmPlusBtn">+</button>
+          </div>
+        </div>
+        <input type="range" id="rpmSlider" min="0" max="600" step="1" value="60">
+      </div>
+
+      <!-- Tyre Diameter Card (Visibly scales wheel size!) -->
+      <div class="dock-card" title="Tyre diameter in mm (visibly scales the wheel in 2D & 3D!)">
+        <div class="dock-card-header">
+          <span>Tyre Diam (D)</span>
+          <div class="stepper-box">
+            <button class="stepper-btn" id="diaMinusBtn">&minus;</button>
+            <input type="number" id="diameterInput" value="100" min="10" max="2000" step="5">
+            <span class="unit-tag">mm</span>
+            <button class="stepper-btn" id="diaPlusBtn">+</button>
+          </div>
+        </div>
+        <input type="range" id="diameterSlider" min="20" max="700" step="5" value="100">
+      </div>
+    </div>
+
+    <!-- Group 2: Transport -->
+    <div class="btn-cluster">
+      <button class="tool-btn" id="playPauseBtn" title="Space to toggle play/pause">
+        <span id="playPauseIcon">⏸</span> <span id="playPauseLabel">Pause</span>
+      </button>
+      <button class="tool-btn" id="reverseBtn" title="Reverse rotation direction (R)">
+        <span>⇄</span> <span id="directionLabel">Fwd</span>
+      </button>
+      <button class="tool-btn danger" id="resetDistBtn" title="Reset distance and turns (O)">
+        <span>↺</span> <span>Reset</span>
+      </button>
+    </div>
+
+    <!-- Group 3: Time Scale (Slow Motion) -->
+    <div class="segmented-scale" id="timeScaleGroup" title="Time scale knob">
+      <button class="scale-btn active" data-scale="1.0">1x</button>
+      <button class="scale-btn" data-scale="0.5">0.5x</button>
+      <button class="scale-btn" data-scale="0.25">0.25x</button>
+      <button class="scale-btn" data-scale="0.1">0.1x</button>
+      <button class="scale-btn" data-scale="0.01">0.01x</button>
+    </div>
+
+    <!-- Group 4: Popovers -->
+    <div class="btn-cluster">
+      <button class="tool-btn highlight" id="btnBikeCompare" title="Adjustable bicycle speed comparison & lockstep pacing">
+        <span>🚲</span> <span>vs Bike</span>
+      </button>
+      <button class="tool-btn" id="btnPresets">
+        <span>🪐</span> <span>Presets</span>
+      </button>
+      <button class="tool-btn" id="btnWheelEntity" title="3D Wheel Entity properties">
+        <span>🛞</span> <span>3D Entity</span>
+      </button>
+      <button class="tool-btn" id="btnSlip">
+        <span id="btnSlipText">Slip: 0%</span>
+      </button>
+      <button class="tool-btn" id="btnGears">
+        <span>⚙️</span> <span>Gears</span>
+      </button>
+      <button class="tool-btn" id="btnLayers">
+        <span>👁️</span> <span>Layers</span>
+      </button>
+      <button class="tool-btn" id="btnExport">
+        <span>📤</span> <span>Export</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       POPOVERS
+       ============================================================ -->
+
+  <!-- 1. Bicycle Speed Comparison & Adjustment Popover -->
+  <div class="popover-container" id="popoverBike">
+    <div class="popover-header">
+      <span>🚲 Bicycle Comparison & Calibration</span>
+      <button class="popover-close" data-close>&times;</button>
+    </div>
+
+    <!-- Motion Mode Selector -->
+    <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+      <button class="scale-btn active" id="btnBikeModeRelative" style="flex: 1; justify-content: center; height: 26px; font-size: 0.72rem;" title="Bicycle matches pacing alongside the wheel with relative drift">
+        🏁 Side-by-Side Pacing
+      </button>
+      <button class="scale-btn" id="btnBikeModeLap" style="flex: 1; justify-content: center; height: 26px; font-size: 0.72rem;" title="Bicycle rides continuously from start (left) to end (right) of track">
+        🚴 Start-to-End Lap
+      </button>
+    </div>
+
+    <!-- Adjustable Bicycle Speed Controls -->
+    <div style="background: rgba(10, 14, 22, 0.85); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; margin-bottom: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 0.74rem;">
+        <span style="font-weight: 700; color: var(--accent-bike);">Bicycle Speed Setting:</span>
+        <div class="stepper-box" style="height: 22px;">
+          <button class="stepper-btn" id="bikeSpeedMinusBtn">&minus;</button>
+          <input type="number" id="bikeSpeedInput" value="20.0" min="0.1" max="60" step="0.5" style="width: 44px; font-size: 0.76rem;">
+          <span class="unit-tag">km/h</span>
+          <button class="stepper-btn" id="bikeSpeedPlusBtn">+</button>
+        </div>
+      </div>
+      <input type="range" id="bikeSpeedSlider" min="1" max="50" step="0.5" value="20">
+      <div style="display: flex; gap: 4px; margin-top: 6px;">
+        <button class="scale-btn" data-bikespeed="5">🚶 5</button>
+        <button class="scale-btn" data-bikespeed="12">🚲 12</button>
+        <button class="scale-btn active" data-bikespeed="20">🚲 20</button>
+        <button class="scale-btn" data-bikespeed="32">🚴 32</button>
+        <button class="scale-btn" data-bikespeed="45">⚡ 45</button>
+      </div>
+    </div>
+
+    <div class="bike-comparison-box">
+      <div class="bike-comparison-title">
+        <span>Kinematic Match Status</span>
+        <span class="bike-ratio-badge" id="modalBikeRatioBadge">0.06&times;</span>
+      </div>
+      <div class="bike-stat-row">
+        <span>Current Wheel:</span>
+        <strong id="modalCurrentSpeed" style="color: var(--accent-cyan);">1.1 km/h (0.31 m/s)</strong>
+      </div>
+      <div class="bike-stat-row">
+        <span>Bicycle Target:</span>
+        <strong id="modalTargetBikeSpeed" style="color: var(--accent-bike);">20.0 km/h (5.56 m/s)</strong>
+      </div>
+      <div class="bike-stat-row">
+        <span>Speed Difference:</span>
+        <span id="modalSpeedDiff" style="color: #93c5fd; font-family: var(--font-mono);">-18.9 km/h (Slower)</span>
+      </div>
+    </div>
+
+    <!-- Quick Drivetrain Actions -->
+    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+      <button class="tool-btn highlight" id="btnMatchWheelToBike" style="flex: 1; justify-content: center; height: 26px; font-size: 0.7rem;" title="Adjusts wheel RPM so the wheel moves exactly at bicycle speed">
+        Match Wheel to Bike
+      </button>
+      <button class="tool-btn" id="btnMatchBikeToWheel" style="flex: 1; justify-content: center; height: 26px; font-size: 0.7rem;" title="Adjusts bicycle speed to match current wheel speed">
+        Match Bike to Wheel
+      </button>
+    </div>
+
+    <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+      <button class="tool-btn" id="btnLoadBikePreset" style="width: 100%; justify-content: center; height: 26px; font-size: 0.7rem;">
+        Load 26" Bike Wheel (660mm D, ~20 km/h)
+      </button>
+    </div>
+
+    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px;">
+      Real-World Speed Reference:
+    </div>
+
+    <div class="speed-ladder">
+      <div class="speed-ladder-item" id="ladderRover">
+        <span>🪐 Mars Rover</span>
+        <span style="font-family: var(--font-mono);">0.14 km/h</span>
+      </div>
+      <div class="speed-ladder-item" id="ladderWalk">
+        <span>🚶 Walking Human</span>
+        <span style="font-family: var(--font-mono);">5.0 km/h</span>
+      </div>
+      <div class="speed-ladder-item" id="ladderJog">
+        <span>🏃 Running</span>
+        <span style="font-family: var(--font-mono);">12.0 km/h</span>
+      </div>
+      <div class="speed-ladder-item active-bike" id="ladderBike">
+        <span>🚲 City Commute Bicycle</span>
+        <span style="font-family: var(--font-mono); font-weight: 700; color: var(--accent-bike);">20.0 km/h</span>
+      </div>
+      <div class="speed-ladder-item" id="ladderRoadBike">
+        <span>🚴 Fast Road Bicycle</span>
+        <span style="font-family: var(--font-mono);">35.0 km/h</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Presets Popover -->
+  <div class="popover-container" id="popoverPresets">
+    <div class="popover-header">
+      <span>Vehicle & Robot Presets</span>
+      <button class="popover-close" data-close>&times;</button>
+    </div>
+    <div class="preset-list">
+      <div class="preset-item" data-rpm="160" data-dia="660" data-spokes="8">
+        <span>🚲 Standard 26" Bicycle</span>
+        <span class="tag">160 RPM • 660mm (~20 km/h)</span>
+      </div>
+      <div class="preset-item" data-rpm="12" data-dia="525" data-spokes="6">
+        <span>🪐 Mars Rover (Curiosity)</span>
+        <span class="tag">12 RPM • 525mm</span>
+      </div>
+      <div class="preset-item" data-rpm="120" data-dia="150" data-spokes="5">
+        <span>🤖 Delivery Bot</span>
+        <span class="tag">120 RPM • 150mm</span>
+      </div>
+      <div class="preset-item" data-rpm="300" data-dia="65" data-spokes="4">
+        <span>🥊 Combat Bot</span>
+        <span class="tag">300 RPM • 65mm</span>
+      </div>
+      <div class="preset-item" data-rpm="60" data-dia="100" data-spokes="6">
+        <span>⚙️ Standard Test</span>
+        <span class="tag">60 RPM • 100mm</span>
+      </div>
+      <div class="preset-item" data-rpm="850" data-dia="650" data-spokes="5">
+        <span>🚗 Passenger Car</span>
+        <span class="tag">850 RPM • 650mm</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 3D Wheel Entity Settings Popover -->
+  <div class="popover-container" id="popoverWheelEntity">
+    <div class="popover-header">
+      <span>🛞 3D Wheel Entity Configuration</span>
+      <button class="popover-close" data-close>&times;</button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="layer-row">
+        <span>3D Tyre Thickness (Width):</span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <input type="range" id="wheel3DThicknessSlider" min="20" max="120" value="50" style="width: 80px;">
+          <span id="wheel3DThicknessVal" style="font-family: var(--font-mono); font-size: 0.75rem; width: 36px; text-align: right;">50px</span>
+        </div>
+      </div>
+      <div class="layer-row">
+        <span>Axle Shaft Length:</span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <input type="range" id="wheel3DAxleSlider" min="30" max="160" value="90" style="width: 80px;">
+          <span id="wheel3DAxleVal" style="font-family: var(--font-mono); font-size: 0.75rem; width: 36px; text-align: right;">90px</span>
+        </div>
+      </div>
+      <div class="layer-row">
+        <span>3D Spoke Shape:</span>
+        <select id="wheel3DSpokeStyle" style="background: rgba(10, 14, 22, 0.9); border: 1px solid var(--border-color); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; outline: none;">
+          <option value="bars">Solid Heavy Bars</option>
+          <option value="wire">Tension Wire Spokes</option>
+          <option value="disc">Solid Aerodisc</option>
+        </select>
+      </div>
+      <div class="layer-row">
+        <span>Tyre Tread Style:</span>
+        <select id="wheel3DTreadStyle" style="background: rgba(10, 14, 22, 0.9); border: 1px solid var(--border-color); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; outline: none;">
+          <option value="rover">Rugged Rover Lugs</option>
+          <option value="street">Road Tread Grooves</option>
+          <option value="smooth">Smooth Slick</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Terrain Slip Popover -->
+  <div class="popover-container" id="popoverSlip">
+    <div class="popover-header">
+      <span>Terrain Wheel Slip</span>
+      <button class="popover-close" data-close>&times;</button>
+    </div>
+    <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px;">
+      0% = pure rolling. Positive = wheelspin in loose soil/sand. Negative = skidding.
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
+      <span>Slip Ratio:</span>
+      <strong id="popoverSlipVal" style="color: var(--accent-green); font-family: var(--font-mono);">0% (Pure Rolling)</strong>
+    </div>
+    <input type="range" id="slipSlider" min="-100" max="100" step="5" value="0">
+  </div>
+
+  <!-- 5. Gearbox Calculator Popover -->
+  <div class="popover-container" id="popoverGears">
+    <div class="popover-header">
+      <span>Motor & Gearbox Estimator</span>
+      <button class="popover-close" data-close>&times;</button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+        <label>Motor RPM</label>
+        <input type="number" id="calcMotorRpm" value="6000" min="100" max="50000" step="100" style="border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 4px;">
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+        <label>Gear Ratio</label>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <input type="number" id="calcGearRatio" value="50" min="1" max="1000" step="1" style="border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 4px; width: 48px;">
+          <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">: 1</span>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 6px;">
+        <div style="font-size: 0.78rem;">
+          Output: <strong id="calcOutputRpm" style="color: var(--accent-cyan); font-family: var(--font-mono);">120 RPM</strong>
+        </div>
+        <button class="tool-btn active" id="calcApplyBtn" style="height: 24px; padding: 2px 8px; font-size: 0.7rem;">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Layers / Display Popover -->
+  <div class="popover-container" id="popoverLayers">
+    <div class="popover-header">
+      <span>Visual Layers & Scale</span>
+      <button class="popover-close" data-close>&times;</button>
+    </div>
+    <div class="layer-row">
+      <span>XYZ Coordinate Axes & Triad</span>
+      <label class="mini-switch">
+        <input type="checkbox" id="toggleAxes" checked>
+        <span class="mini-slider"></span>
+      </label>
+    </div>
+    <div class="layer-row">
+      <span>Differentiating Road Pattern</span>
+      <label class="mini-switch">
+        <input type="checkbox" id="toggleGrid" checked>
+        <span class="mini-slider"></span>
+      </label>
+    </div>
+    <div class="layer-row">
+      <span>Cycloid Path (Cusp v=0)</span>
+      <label class="mini-switch">
+        <input type="checkbox" id="toggleCycloid" checked>
+        <span class="mini-slider"></span>
+      </label>
+    </div>
+    <div class="layer-row">
+      <span>Velocity Vectors</span>
+      <label class="mini-switch">
+        <input type="checkbox" id="toggleVectors" checked>
+        <span class="mini-slider"></span>
+      </label>
+    </div>
+    <div class="layer-row">
+      <span>Contact Patch ICR</span>
+      <label class="mini-switch">
+        <input type="checkbox" id="toggleContactPatch" checked>
+        <span class="mini-slider"></span>
+      </label>
+    </div>
+    <div class="layer-row">
+      <span>Pacing Ghost Bicycle</span>
+      <label class="mini-switch">
+        <input type="checkbox" id="toggleGhostBike" checked>
+        <span class="mini-slider"></span>
+      </label>
+    </div>
+    <div class="layer-row" style="margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
+      <span>Spokes Count:</span>
+      <div style="display: inline-flex; gap: 3px;" id="spokesSelectGroup">
+        <button class="scale-btn" data-spokes="1">1</button>
+        <button class="scale-btn" data-spokes="3">3</button>
+        <button class="scale-btn" data-spokes="5">5</button>
+        <button class="scale-btn active" data-spokes="6">6</button>
+        <button class="scale-btn" data-spokes="8">8</button>
+      </div>
+    </div>
+    <div class="layer-row">
+      <span>1:1 Physical Scale:</span>
+      <button class="tool-btn" id="btnOpenCalibrate" style="height: 22px; padding: 2px 6px; font-size: 0.7rem;">Calibrate 📏</button>
+    </div>
+  </div>
+
+  <!-- 7. Export Popover -->
+  <div class="popover-container" id="popoverExport">
+    <div class="popover-header">
+      <span>Export & Documentation</span>
+      <button class="popover-close" data-close>&times;</button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <button class="tool-btn" id="copySpecBtn" style="justify-content: center; width: 100%;">
+        <span>📋</span> <span>Copy Kinematics Spec (Markdown)</span>
+      </button>
+      <button class="tool-btn" id="exportPngBtn" style="justify-content: center; width: 100%;">
+        <span>📸</span> <span>Save Canvas Snapshot (PNG)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toastNotice">Copied to clipboard!</div>
+
+  <!-- Modal for 1:1 Physical Scale -->
+  <div class="modal-backdrop" id="calibrationModal">
+    <div class="modal-content">
+      <h3 style="font-size: 1rem; margin-bottom: 6px;">📏 Calibrate 1:1 Physical Size</h3>
+      <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
+        Adjust the slider until this card matches a real credit card (85.6 mm wide) on your monitor:
+      </p>
+      <div class="card-guide" id="creditCardGuide">85.6 mm Standard Card</div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.75rem;">
+        <span>DPI Setting:</span>
+        <strong id="dpiValue" style="color: var(--accent-cyan); font-family: var(--font-mono);">96 DPI</strong>
+      </div>
+      <input type="range" id="dpiSlider" min="60" max="350" value="96" step="1">
+      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px;">
+        <button class="tool-btn" id="cancelCalibrateBtn">Cancel</button>
+        <button class="tool-btn active" id="applyCalibrateBtn">Apply 1:1 Scale</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       JAVASCRIPT APPLICATION ENGINE
+       ============================================================ -->
+  <script>
+    (function () {
+      'use strict';
+
+      // --- Kinematics & Simulation State ---
+      const state = {
+        rpm: 60,
+        diameterMm: 100,
+        direction: 1,           // 1 = forward, -1 = reverse
+        timeScale: 1.0,         // Slow motion factor
+        spokes: 6,
+        slipRatio: 0,           // -1.0 to 1.0
+        displayMode: 'fit',     // 'fit' or 'true-size'
+        viewMode: '2d',         // '2d' or '3d'
+        screenDpi: 96,
+        isRunning: true,
+
+        // Layers
+        showAxes: true,
+        showGrid: true,
+        showCycloid: true,
+        showVectors: true,
+        showContactPatch: true,
+        showGhostBike: true,
+
+        // Dynamics
+        angle: 0,
+        groundOffsetPx: 0,
+        distanceTraveledM: 0,
+        revolutionsCount: 0,
+        cycloidPoints: [],
+
+        // Timing
+        lastTime: performance.now(),
+        fps: 60,
+        dt: 0.0166,
+        isAliasing: false
+      };
+
+      // --- Adjustable Ghost Bicycle Entity ---
+      const bikeEntity = {
+        speedKmh: 20.0,
+        speedMs: 20.0 / 3.6,
+        relativeOffsetPx: 0,
+        mode: 'relative', // 'relative' (side-by-side pacing) or 'lap' (start-to-end lap)
+        lapX: -90,
+        crankAngle: 0,
+        wheelAngle: 0,
+        isMatched: false,
+
+        setSpeed(kmh) {
+          const num = Number(kmh);
+          this.speedKmh = Math.max(0.1, Math.min(60, isNaN(num) ? 20.0 : num));
+          this.speedMs = this.speedKmh / 3.6;
+        },
+
+        update(dt, linearSpeedMs) {
+          const effectiveTimeScale = state.timeScale;
+          const signedWheelSpeedMs = state.direction * linearSpeedMs;
+          const relSpeedMs = this.speedMs - signedWheelSpeedMs;
+          const isNearlyMatched = Math.abs(relSpeedMs) < 0.08;
+          this.isMatched = isNearlyMatched;
+
+          if (this.mode === 'lap') {
+            // Track Lap Mode: bicycle rides continuously from start (left) to end (right)
+            // Visual speed calibrated for comfortable observing
+            const lapPxSpeed = Math.max(25, this.speedMs * 18);
+            this.lapX += lapPxSpeed * dt * effectiveTimeScale;
+            if (this.lapX > viewWidth + 90) {
+              this.lapX = -90;
+            }
+          } else {
+            // Side-by-Side Pacing Mode:
+            if (isNearlyMatched) {
+              // Smooth lockstep: gently pull back to exactly abreast with zero drift
+              this.relativeOffsetPx += (0 - this.relativeOffsetPx) * Math.min(1, dt * 5);
+            } else {
+              // Drift smoothly forward if bike is faster, backward if slower
+              // Gentle visual speed: clamped to +- 65 px/s so it never flies off like a rocket
+              const visualDriftPxSpeed = Math.max(-65, Math.min(65, relSpeedMs * 12));
+              this.relativeOffsetPx += visualDriftPxSpeed * dt * effectiveTimeScale;
+
+              const wrapBound = viewWidth * 0.5 + 120;
+              if (this.relativeOffsetPx > wrapBound) {
+                this.relativeOffsetPx = -wrapBound;
+              } else if (this.relativeOffsetPx < -wrapBound) {
+                this.relativeOffsetPx = wrapBound;
+              }
+            }
+          }
+
+          // Rotating wheels & pedals at physical bicycle angular velocity
+          const bikeWheelRadiusM = 0.33; // 26" wheel radius
+          const omegaBike = this.speedMs / bikeWheelRadiusM;
+          this.wheelAngle += omegaBike * dt * effectiveTimeScale;
+          this.crankAngle += (omegaBike * 0.45) * dt * effectiveTimeScale;
+        }
+      };
+
+      // --- 3D Camera Entity ---
+      const camera = {
+        yaw: 0.52,             // ~30 deg azimuth
+        pitch: 0.28,           // ~16 deg elevation
+        targetYaw: 0.52,
+        targetPitch: 0.28,
+        distance: 650,         // Zoom
+        targetDistance: 650,
+        panX: 0,
+        panY: 0,
+        targetPanX: 0,
+        targetPanY: 0,
+
+        setPreset(name) {
+          if (name === 'iso') {
+            this.targetYaw = 0.52;
+            this.targetPitch = 0.28;
+            this.targetDistance = 650;
+            this.targetPanX = 0;
+            this.targetPanY = 0;
+          } else if (name === 'side') {
+            this.targetYaw = 0;
+            this.targetPitch = 0;
+            this.targetDistance = 600;
+          } else if (name === 'front') {
+            this.targetYaw = Math.PI / 2;
+            this.targetPitch = 0;
+            this.targetDistance = 600;
+          } else if (name === 'top') {
+            this.targetYaw = 0;
+            this.targetPitch = Math.PI / 2 - 0.02;
+            this.targetDistance = 750;
+          } else if (name === 'reset') {
+            this.reset();
+          }
+        },
+
+        reset() {
+          this.targetYaw = 0.52;
+          this.targetPitch = 0.28;
+          this.targetDistance = 650;
+          this.targetPanX = 0;
+          this.targetPanY = 0;
+        },
+
+        update() {
+          this.yaw += (this.targetYaw - this.yaw) * 0.14;
+          this.pitch += (this.targetPitch - this.pitch) * 0.14;
+          this.distance += (this.targetDistance - this.distance) * 0.14;
+          this.panX += (this.targetPanX - this.panX) * 0.14;
+          this.panY += (this.targetPanY - this.panY) * 0.14;
+        }
+      };
+
+      // --- 3D Wheel Entity Configuration ---
+      const wheelEntity = {
+        thicknessPx: 50,
+        axleLengthPx: 90,
+        spokeStyle: 'bars',
+        treadStyle: 'rover',
+        rimInsetRatio: 0.78,
+        hubRatio: 0.25
+      };
+
+      // --- DOM Elements ---
+      const canvas = document.getElementById('wheelCanvas');
+      const ctx = canvas.getContext('2d');
+      const viewportContainer = document.getElementById('viewportContainer');
+
+      // Top Header
+      const aliasingBadge = document.getElementById('aliasingBadge');
+      const aliasingText = document.getElementById('aliasingText');
+      const dtReadout = document.getElementById('dtReadout');
+      const fpsReadout = document.getElementById('fpsReadout');
+      const aliasingAlert = document.getElementById('aliasingAlert');
+      const btnView2D = document.getElementById('btnView2D');
+      const btnView3D = document.getElementById('btnView3D');
+      const cameraToolbar = document.getElementById('cameraToolbar');
+      const canvasHint = document.getElementById('canvasHint');
+
+      // HUD Elements
+      const hudLinearMs = document.getElementById('hudLinearMs');
+      const hudLinearKmh = document.getElementById('hudLinearKmh');
+      const hudBikeTitle = document.getElementById('hudBikeTitle');
+      const hudBikeRatio = document.getElementById('hudBikeRatio');
+      const hudBikeDiff = document.getElementById('hudBikeDiff');
+      const hudOmega = document.getElementById('hudOmega');
+      const hudDegSec = document.getElementById('hudDegSec');
+      const hudDrawnR = document.getElementById('hudDrawnR');
+      const hudRimSpeedPx = document.getElementById('hudRimSpeedPx');
+      const hudDist = document.getElementById('hudDist');
+      const hudRevs = document.getElementById('hudRevs');
+
+      // Drivetrain Controls
+      const rpmInput = document.getElementById('rpmInput');
+      const rpmSlider = document.getElementById('rpmSlider');
+      const rpmMinusBtn = document.getElementById('rpmMinusBtn');
+      const rpmPlusBtn = document.getElementById('rpmPlusBtn');
+
+      const diameterInput = document.getElementById('diameterInput');
+      const diameterSlider = document.getElementById('diameterSlider');
+      const diaMinusBtn = document.getElementById('diaMinusBtn');
+      const diaPlusBtn = document.getElementById('diaPlusBtn');
+
+      // Transport Buttons
+      const playPauseBtn = document.getElementById('playPauseBtn');
+      const playPauseIcon = document.getElementById('playPauseIcon');
+      const playPauseLabel = document.getElementById('playPauseLabel');
+      const reverseBtn = document.getElementById('reverseBtn');
+      const directionLabel = document.getElementById('directionLabel');
+      const resetDistBtn = document.getElementById('resetDistBtn');
+      const timeScaleGroup = document.getElementById('timeScaleGroup');
+
+      // Popover Triggers & Panels
+      const btnBikeCompare = document.getElementById('btnBikeCompare');
+      const popoverBike = document.getElementById('popoverBike');
+      const bikeSpeedInput = document.getElementById('bikeSpeedInput');
+      const bikeSpeedSlider = document.getElementById('bikeSpeedSlider');
+      const bikeSpeedMinusBtn = document.getElementById('bikeSpeedMinusBtn');
+      const bikeSpeedPlusBtn = document.getElementById('bikeSpeedPlusBtn');
+      const modalBikeRatioBadge = document.getElementById('modalBikeRatioBadge');
+      const modalCurrentSpeed = document.getElementById('modalCurrentSpeed');
+      const modalTargetBikeSpeed = document.getElementById('modalTargetBikeSpeed');
+      const modalSpeedDiff = document.getElementById('modalSpeedDiff');
+      const btnMatchWheelToBike = document.getElementById('btnMatchWheelToBike');
+      const btnMatchBikeToWheel = document.getElementById('btnMatchBikeToWheel');
+      const btnLoadBikePreset = document.getElementById('btnLoadBikePreset');
+
+      const btnPresets = document.getElementById('btnPresets');
+      const popoverPresets = document.getElementById('popoverPresets');
+      const btnWheelEntity = document.getElementById('btnWheelEntity');
+      const popoverWheelEntity = document.getElementById('popoverWheelEntity');
+      const wheel3DThicknessSlider = document.getElementById('wheel3DThicknessSlider');
+      const wheel3DThicknessVal = document.getElementById('wheel3DThicknessVal');
+      const wheel3DAxleSlider = document.getElementById('wheel3DAxleSlider');
+      const wheel3DAxleVal = document.getElementById('wheel3DAxleVal');
+      const wheel3DSpokeStyle = document.getElementById('wheel3DSpokeStyle');
+      const wheel3DTreadStyle = document.getElementById('wheel3DTreadStyle');
+
+      const btnSlip = document.getElementById('btnSlip');
+      const btnSlipText = document.getElementById('btnSlipText');
+      const popoverSlip = document.getElementById('popoverSlip');
+      const slipSlider = document.getElementById('slipSlider');
+      const popoverSlipVal = document.getElementById('popoverSlipVal');
+
+      const btnGears = document.getElementById('btnGears');
+      const popoverGears = document.getElementById('popoverGears');
+      const calcMotorRpm = document.getElementById('calcMotorRpm');
+      const calcGearRatio = document.getElementById('calcGearRatio');
+      const calcOutputRpm = document.getElementById('calcOutputRpm');
+      const calcApplyBtn = document.getElementById('calcApplyBtn');
+
+      const btnLayers = document.getElementById('btnLayers');
+      const popoverLayers = document.getElementById('popoverLayers');
+      const toggleAxes = document.getElementById('toggleAxes');
+      const toggleGrid = document.getElementById('toggleGrid');
+      const toggleCycloid = document.getElementById('toggleCycloid');
+      const toggleVectors = document.getElementById('toggleVectors');
+      const toggleContactPatch = document.getElementById('toggleContactPatch');
+      const toggleGhostBike = document.getElementById('toggleGhostBike');
+      const spokesSelectGroup = document.getElementById('spokesSelectGroup');
+
+      const btnExport = document.getElementById('btnExport');
+      const popoverExport = document.getElementById('popoverExport');
+      const copySpecBtn = document.getElementById('copySpecBtn');
+      const exportPngBtn = document.getElementById('exportPngBtn');
+      const toastNotice = document.getElementById('toastNotice');
+
+      const btnOpenCalibrate = document.getElementById('btnOpenCalibrate');
+      const calibrationModal = document.getElementById('calibrationModal');
+      const cancelCalibrateBtn = document.getElementById('cancelCalibrateBtn');
+      const applyCalibrateBtn = document.getElementById('applyCalibrateBtn');
+      const dpiSlider = document.getElementById('dpiSlider');
+      const dpiValue = document.getElementById('dpiValue');
+      const creditCardGuide = document.getElementById('creditCardGuide');
+
+      // --- Canvas Resolution Handling ---
+      let viewWidth = 800;
+      let viewHeight = 600;
+      let dpr = window.devicePixelRatio || 1;
+
+      function resizeCanvas() {
+        const rect = viewportContainer.getBoundingClientRect();
+        viewWidth = Math.floor(rect.width);
+        viewHeight = Math.floor(rect.height);
+
+        dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(viewWidth * dpr);
+        canvas.height = Math.floor(viewHeight * dpr);
+
+        ctx.resetTransform();
+        ctx.scale(dpr, dpr);
+      }
+
+      window.addEventListener('resize', resizeCanvas);
+      const resizeObserver = new ResizeObserver(resizeCanvas);
+      resizeObserver.observe(viewportContainer);
+      resizeCanvas();
+
+      // ============================================================
+      // CORE MATHEMATICAL KINEMATICS & DYNAMIC WHEEL SCALING
+      // ============================================================
+
+      function calculateOmega(rpm) {
+        return (rpm * 2 * Math.PI) / 60;
+      }
+
+      function calculateLinearSpeedMs(rpm, diameterMm) {
+        const vRim = (Math.PI * (diameterMm / 1000) * rpm) / 60;
+        return vRim * (1 - state.slipRatio);
+      }
+
+      function getDrawnRadiusPx() {
+        if (state.displayMode === 'true-size') {
+          const pxPerMm = state.screenDpi / 25.4;
+          return Math.max(12, Math.round((state.diameterMm / 2) * pxPerMm));
+        } else {
+          // Dynamic scaling with physical diameter
+          const minR = 24;
+          const maxR = Math.max(minR + 30, Math.floor(viewHeight * 0.42));
+          const t = Math.max(0, Math.min(1, (state.diameterMm - 20) / (700 - 20)));
+          const r = minR + Math.pow(t, 0.78) * (maxR - minR);
+          return Math.round(r);
+        }
+      }
+
+      function evaluateAliasing(deltaAngleRad) {
+        const degPerFrame = (deltaAngleRad * 180) / Math.PI;
+        const spokeThresholdDeg = 180 / state.spokes;
+
+        if (degPerFrame >= spokeThresholdDeg) {
+          aliasingBadge.className = 'status-badge aliasing';
+          aliasingText.textContent = 'Aliasing!';
+          aliasingAlert.classList.add('active');
+        } else if (degPerFrame >= spokeThresholdDeg * 0.7) {
+          aliasingBadge.className = 'status-badge warning';
+          aliasingText.textContent = 'Near Nyquist';
+          aliasingAlert.classList.remove('active');
+        } else {
+          aliasingBadge.className = 'status-badge';
+          aliasingText.textContent = 'Faithful Motion';
+          aliasingAlert.classList.remove('active');
+        }
+      }
+
+      function updateHUD(omega, linearSpeedMs, drawnRadiusPx) {
+        const kmh = linearSpeedMs * 3.6;
+        const degSec = state.rpm * 6;
+        const rimSpeedPx = omega * drawnRadiusPx;
+
+        hudLinearMs.textContent = linearSpeedMs.toFixed(2);
+        hudLinearKmh.textContent = kmh.toFixed(1);
+        hudOmega.textContent = omega.toFixed(2);
+        hudDegSec.textContent = degSec.toFixed(0);
+        hudDrawnR.textContent = drawnRadiusPx;
+        hudRimSpeedPx.textContent = Math.round(rimSpeedPx).toLocaleString();
+        hudDist.textContent = state.distanceTraveledM.toFixed(2);
+        hudRevs.textContent = state.revolutionsCount.toFixed(1);
+
+        // Bicycle Comparison
+        hudBikeTitle.textContent = `🚲 vs Bicycle (${bikeEntity.speedKmh.toFixed(0)} km/h)`;
+        const targetBikeKmh = Math.max(0.1, bikeEntity.speedKmh);
+        const bikeRatio = kmh / targetBikeKmh;
+        hudBikeRatio.textContent = `${bikeRatio.toFixed(2)}×`;
+
+        const diffKmh = kmh - targetBikeKmh;
+        if (Math.abs(diffKmh) < 0.25) {
+          hudBikeDiff.textContent = '(Matched!)';
+          hudBikeDiff.style.color = 'var(--accent-green)';
+        } else if (diffKmh > 0) {
+          hudBikeDiff.textContent = `(+${diffKmh.toFixed(1)} km/h)`;
+          hudBikeDiff.style.color = 'var(--accent-green)';
+        } else {
+          hudBikeDiff.textContent = `(${diffKmh.toFixed(1)} km/h)`;
+          hudBikeDiff.style.color = '#93c5fd';
+        }
+
+        modalBikeRatioBadge.textContent = `${bikeRatio.toFixed(2)}× of Bike`;
+        modalCurrentSpeed.textContent = `${kmh.toFixed(1)} km/h (${linearSpeedMs.toFixed(2)} m/s)`;
+        modalTargetBikeSpeed.textContent = `${targetBikeKmh.toFixed(1)} km/h (${bikeEntity.speedMs.toFixed(2)} m/s)`;
+
+        if (Math.abs(diffKmh) < 0.25) {
+          modalSpeedDiff.textContent = 'Matched in lockstep! Riding side-by-side.';
+          modalSpeedDiff.style.color = 'var(--accent-green)';
+        } else if (diffKmh > 0) {
+          modalSpeedDiff.textContent = `+${diffKmh.toFixed(1)} km/h (Wheel is faster, pulls ahead)`;
+          modalSpeedDiff.style.color = 'var(--accent-green)';
+        } else {
+          modalSpeedDiff.textContent = `${Math.abs(diffKmh).toFixed(1)} km/h (Bicycle is faster, pulls ahead)`;
+          modalSpeedDiff.style.color = '#93c5fd';
+        }
+      }
+
+      // ============================================================
+      // 3D PERSPECTIVE PROJECTION & CAMERA ENTITY ENGINE
+      // ============================================================
+
+      function project3D(x, y, z, cx, cy) {
+        const cosY = Math.cos(camera.yaw);
+        const sinY = Math.sin(camera.yaw);
+        const x1 = x * cosY - z * sinY;
+        const z1 = z * cosY + x * sinY;
+
+        const cosP = Math.cos(camera.pitch);
+        const sinP = Math.sin(camera.pitch);
+        const y2 = y * cosP - z1 * sinP;
+        const z2 = z1 * cosP + y * sinP;
+
+        const f = camera.distance;
+        const zCam = z2 + f;
+        if (zCam < 15) return { x: cx, y: cy, scale: 0, visible: false, depth: zCam };
+
+        const scale = f / zCam;
+        return {
+          x: cx + (x1 + camera.panX) * scale,
+          y: cy + (y2 + camera.panY) * scale,
+          scale: scale,
+          visible: true,
+          depth: zCam
+        };
+      }
+
+      function drawOrientationGizmo() {
+        if (!state.showAxes) return;
+
+        const gx = viewWidth - 55;
+        const gy = 95;
+        const len = 34;
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(12, 17, 27, 0.75)';
+        ctx.beginPath();
+        ctx.arc(gx, gy, 42, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(64, 93, 138, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        const cosY = Math.cos(camera.yaw);
+        const sinY = Math.sin(camera.yaw);
+        const cosP = Math.cos(camera.pitch);
+        const sinP = Math.sin(camera.pitch);
+
+        const projectAxis = (ax, ay, az) => {
+          const x1 = ax * cosY - az * sinY;
+          const z1 = az * cosY + ax * sinY;
+          const y2 = ay * cosP - z1 * sinP;
+          return { x: gx + x1 * len, y: gy + y2 * len, z: z1 };
+        };
+
+        const axX = projectAxis(1, 0, 0);
+        const axY = projectAxis(0, -1, 0);
+        const axZ = projectAxis(0, 0, 1);
+
+        const axes = [
+          { pt: axX, color: '#ef4444', label: 'X (Roll)' },
+          { pt: axY, color: '#22c55e', label: 'Y (Up)' },
+          { pt: axZ, color: '#3b82f6', label: 'Z (Axle)' }
+        ];
+
+        axes.sort((a, b) => a.pt.z - b.pt.z);
+
+        axes.forEach(a => {
+          ctx.strokeStyle = a.color;
+          ctx.fillStyle = a.color;
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.moveTo(gx, gy);
+          ctx.lineTo(a.pt.x, a.pt.y);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(a.pt.x, a.pt.y, 3, 0, 2 * Math.PI);
+          ctx.fill();
+
+          ctx.font = '9px var(--font-mono)';
+          ctx.fillText(a.label[0], a.pt.x + 3, a.pt.y - 2);
+        });
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = '8px var(--font-mono)';
+        ctx.textAlign = 'center';
+        ctx.fillText('XYZ Triad', gx, gy + 32);
+        ctx.restore();
+      }
+
+      // ============================================================
+      // 3D INFINITE ROAD WITH DIFFERENTIATING PATTERN & PYLONS
+      // ============================================================
+
+      function draw3DScene(cx, cy, R) {
+        const groundY = Math.floor(viewHeight * 0.72);
+        const wheelCenterY = -R;
+        const W = wheelEntity.thicknessPx;
+        const zFront = -W / 2;
+        const zBack = W / 2;
+
+        ctx.save();
+
+        // 1. Perspective Horizon & Fog
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, viewHeight);
+        bgGrad.addColorStop(0, '#090d16');
+        bgGrad.addColorStop(0.50, '#121927');
+        bgGrad.addColorStop(0.51, '#0c121e');
+        bgGrad.addColorStop(1, '#05070c');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, viewWidth, viewHeight);
+
+        // 2. 3D Environment: Background Houses & Infinite Road
+        if (state.showGrid) {
+          draw3DBackgroundHouses(cx, groundY);
+          draw3DInfiniteRoadEnvironment(cx, groundY);
+        }
+
+        // 3. 3D XYZ World Coordinate Axis Lines
+        if (state.showAxes) {
+          draw3DWorldAxes(cx, groundY, R);
+        }
+
+        // 4. 3D Ghost Bicycle Entity (Pacing in Parallel Lane)
+        if (state.showGhostBike) {
+          draw3DGhostBike(cx, groundY);
+        }
+
+        // 5. 3D Cycloid Path
+        if (state.showCycloid && state.cycloidPoints.length > 2) {
+          draw3DCycloid(cx, groundY, R);
+        }
+
+        // 6. Solid Shaded 3D Wheel Entity
+        draw3DSolidWheelEntity(cx, groundY, wheelCenterY, R, W, zFront, zBack);
+
+        // 7. Contact Patch ICR in 3D
+        if (state.showContactPatch) {
+          const icrP = project3D(0, 0, 0, cx, groundY);
+          if (icrP.visible) {
+            ctx.fillStyle = '#ff3366';
+            ctx.beginPath();
+            ctx.arc(icrP.x, icrP.y, 4 * icrP.scale, 0, 2 * Math.PI);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255, 51, 102, 0.9)';
+            ctx.font = '9px var(--font-mono)';
+            ctx.textAlign = 'center';
+            const label = state.slipRatio === 0 ? 'ICR (0, 0, 0)' : `Slip ${(state.slipRatio * 100).toFixed(0)}%`;
+            ctx.fillText(label, icrP.x, icrP.y + 16);
+          }
+        }
+
+        // 8. 3D Orientation Compass
+        drawOrientationGizmo();
+
+        ctx.restore();
+      }
+
+      // --- 3D Background Houses (Procedural, Seamless Parallax Architecture) ---
+      function draw3DBackgroundHouses(cx, groundY) {
+        ctx.save();
+        const scrollX = state.groundOffsetPx;
+        const houseSpacing = 320;
+        const xMin = -1700;
+        const xMax = 1700;
+        const kMin = Math.floor((xMin - scrollX) / houseSpacing);
+        const kMax = Math.ceil((xMax - scrollX) / houseSpacing);
+
+        const colorTypes = [
+          { wall: '#334155', trim: '#64748b', roof: '#991b1b' },
+          { wall: '#475569', trim: '#94a3b8', roof: '#1e3a8a' },
+          { wall: '#27272a', trim: '#71717a', roof: '#78350f' },
+          { wall: '#3f3f46', trim: '#a1a1aa', roof: '#0f766e' },
+          { wall: '#1e293b', trim: '#475569', roof: '#b91c1c' }
+        ];
+
+        for (let k = kMin; k <= kMax; k++) {
+          const hx = k * houseSpacing + scrollX;
+          const hz = -350; // Placed on the roadside verge behind the road
+
+          const seed = Math.abs(Math.sin(k * 12.9898) * 43758.5453);
+          const varW = 80 + Math.floor((seed * 10) % 25);
+          const varH = 62 + Math.floor((seed * 100) % 25);
+          const varD = 65 + Math.floor((seed * 1000) % 20);
+          const roofH = 34 + Math.floor((seed * 50) % 15);
+
+          const pal = colorTypes[Math.abs(k) % colorTypes.length];
+
+          // 3D Points for House
+          const pBL = project3D(hx - varW / 2, 0, hz, cx, groundY);
+          const pBR = project3D(hx + varW / 2, 0, hz, cx, groundY);
+          const pBackBR = project3D(hx + varW / 2, 0, hz - varD, cx, groundY);
+          const pBackBL = project3D(hx - varW / 2, 0, hz - varD, cx, groundY);
+
+          const pEL = project3D(hx - varW / 2, -varH, hz, cx, groundY);
+          const pER = project3D(hx + varW / 2, -varH, hz, cx, groundY);
+          const pBackER = project3D(hx + varW / 2, -varH, hz - varD, cx, groundY);
+          const pBackEL = project3D(hx - varW / 2, -varH, hz - varD, cx, groundY);
+
+          const pRidgeFront = project3D(hx, -varH - roofH, hz + 6, cx, groundY);
+          const pRidgeBack = project3D(hx, -varH - roofH, hz - varD - 6, cx, groundY);
+
+          if (!pBL.visible || !pBR.visible || !pRidgeFront.visible) continue;
+
+          // 1. Back Roof Slope
+          if (pBackER.visible && pBackEL.visible) {
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+            ctx.beginPath();
+            ctx.moveTo(pBackEL.x, pBackEL.y);
+            ctx.lineTo(pRidgeBack.x, pRidgeBack.y);
+            ctx.lineTo(pRidgeFront.x, pRidgeFront.y);
+            ctx.lineTo(pBackER.x, pBackER.y);
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          // 2. Side Wall (Depth face)
+          if (pBL.visible && pBackBL.visible && pEL.visible && pBackEL.visible) {
+            ctx.fillStyle = 'rgba(25, 33, 46, 0.95)';
+            ctx.beginPath();
+            ctx.moveTo(pBL.x, pBL.y);
+            ctx.lineTo(pBackBL.x, pBackBL.y);
+            ctx.lineTo(pBackEL.x, pBackEL.y);
+            ctx.lineTo(pEL.x, pEL.y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.stroke();
+          }
+
+          // 3. Front Wall Face (facing +Z towards road)
+          ctx.fillStyle = pal.wall;
+          ctx.beginPath();
+          ctx.moveTo(pBL.x, pBL.y);
+          ctx.lineTo(pBR.x, pBR.y);
+          ctx.lineTo(pER.x, pER.y);
+          ctx.lineTo(pEL.x, pEL.y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = pal.trim;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // 4. Front Triangular Gable
+          ctx.fillStyle = pal.wall;
+          ctx.beginPath();
+          ctx.moveTo(pEL.x, pEL.y);
+          ctx.lineTo(pER.x, pER.y);
+          ctx.lineTo(pRidgeFront.x, pRidgeFront.y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = pal.trim;
+          ctx.stroke();
+
+          // 5. Front Roof Slopes (Tiled)
+          ctx.fillStyle = pal.roof;
+          ctx.beginPath();
+          ctx.moveTo(pER.x, pER.y);
+          ctx.lineTo(pRidgeFront.x, pRidgeFront.y);
+          ctx.lineTo(pRidgeBack.x, pRidgeBack.y);
+          ctx.lineTo(pBackER.x, pBackER.y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+          ctx.stroke();
+
+          // 6. Chimney on Roof
+          const pChimBase = project3D(hx + varW * 0.22, -varH - roofH * 0.5, hz - varD * 0.35, cx, groundY);
+          const pChimTop = project3D(hx + varW * 0.22, -varH - roofH * 1.15, hz - varD * 0.35, cx, groundY);
+          if (pChimBase.visible && pChimTop.visible) {
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 5 * pChimBase.scale;
+            ctx.beginPath(); ctx.moveTo(pChimBase.x, pChimBase.y); ctx.lineTo(pChimTop.x, pChimTop.y); ctx.stroke();
+            // Cap
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(pChimTop.x - 4 * pChimTop.scale, pChimTop.y - 2, 8 * pChimTop.scale, 3);
+          }
+
+          // 7. Glowing Windows & Front Door
+          const pDoorBL = project3D(hx - 7, 0, hz + 1, cx, groundY);
+          const pDoorTR = project3D(hx + 7, -varH * 0.42, hz + 1, cx, groundY);
+          if (pDoorBL.visible && pDoorTR.visible) {
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(pDoorBL.x, pDoorTR.y, pDoorTR.x - pDoorBL.x, pDoorBL.y - pDoorTR.y);
+            ctx.strokeStyle = pal.trim;
+            ctx.strokeRect(pDoorBL.x, pDoorTR.y, pDoorTR.x - pDoorBL.x, pDoorBL.y - pDoorTR.y);
+          }
+
+          // Glowing Amber Windows
+          const pWin1L = project3D(hx - varW * 0.35, -varH * 0.72, hz + 1, cx, groundY);
+          const pWin1R = project3D(hx - varW * 0.12, -varH * 0.45, hz + 1, cx, groundY);
+          if (pWin1L.visible && pWin1R.visible) {
+            ctx.fillStyle = '#ffb703';
+            ctx.shadowColor = '#ffb703';
+            ctx.shadowBlur = 8;
+            ctx.fillRect(pWin1L.x, pWin1L.y, pWin1R.x - pWin1L.x, pWin1R.y - pWin1L.y);
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#0f172a';
+            ctx.strokeRect(pWin1L.x, pWin1L.y, pWin1R.x - pWin1L.x, pWin1R.y - pWin1L.y);
+          }
+
+          const pWin2L = project3D(hx + varW * 0.12, -varH * 0.72, hz + 1, cx, groundY);
+          const pWin2R = project3D(hx + varW * 0.35, -varH * 0.45, hz + 1, cx, groundY);
+          if (pWin2L.visible && pWin2R.visible) {
+            ctx.fillStyle = '#ffb703';
+            ctx.shadowColor = '#ffb703';
+            ctx.shadowBlur = 8;
+            ctx.fillRect(pWin2L.x, pWin2L.y, pWin2R.x - pWin2L.x, pWin2R.y - pWin2L.y);
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#0f172a';
+            ctx.strokeRect(pWin2L.x, pWin2L.y, pWin2R.x - pWin2L.x, pWin2R.y - pWin2L.y);
+          }
+
+          // 8. Garden Conifer / Pine Tree beside house
+          const treeX = hx + varW / 2 + 24;
+          const treeZ = hz - 12;
+          const pTreeBase = project3D(treeX, 0, treeZ, cx, groundY);
+          const pTreeTop = project3D(treeX, -varH * 0.95, treeZ, cx, groundY);
+          if (pTreeBase.visible && pTreeTop.visible) {
+            const ts = pTreeBase.scale;
+            ctx.strokeStyle = '#78350f';
+            ctx.lineWidth = 3.5 * ts;
+            ctx.beginPath(); ctx.moveTo(pTreeBase.x, pTreeBase.y); ctx.lineTo(pTreeBase.x, pTreeTop.y + 15 * ts); ctx.stroke();
+
+            ctx.fillStyle = '#15803d';
+            ctx.beginPath();
+            ctx.moveTo(pTreeTop.x, pTreeTop.y);
+            ctx.lineTo(pTreeTop.x - 14 * ts, pTreeTop.y + 24 * ts);
+            ctx.lineTo(pTreeTop.x + 14 * ts, pTreeTop.y + 24 * ts);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#166534';
+            ctx.beginPath();
+            ctx.moveTo(pTreeTop.x, pTreeTop.y + 16 * ts);
+            ctx.lineTo(pTreeTop.x - 18 * ts, pTreeTop.y + 42 * ts);
+            ctx.lineTo(pTreeTop.x + 18 * ts, pTreeTop.y + 42 * ts);
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      // --- Seamless Infinite 3D Road Environment (Zero-Snapping World Indices) ---
+      function draw3DInfiniteRoadEnvironment(cx, groundY) {
+        ctx.save();
+        const roadHalfW = 210; // Road track width in Z (-210 to +210)
+        const scrollX = state.groundOffsetPx;
+        const xMin = -1600;
+        const xMax = 1600;
+
+        // 1. Subtle terrain grid lines outside road
+        const gridSpacing = 200;
+        const kGridMin = Math.floor((xMin - scrollX) / gridSpacing);
+        const kGridMax = Math.ceil((xMax - scrollX) / gridSpacing);
+        ctx.strokeStyle = 'rgba(30, 45, 65, 0.4)';
+        ctx.lineWidth = 1;
+        for (let k = kGridMin; k <= kGridMax; k++) {
+          const gx = k * gridSpacing + scrollX;
+          const ptL1 = project3D(gx, 0, -520, cx, groundY);
+          const ptL2 = project3D(gx, 0, -roadHalfW, cx, groundY);
+          if (ptL1.visible && ptL2.visible) {
+            ctx.beginPath(); ctx.moveTo(ptL1.x, ptL1.y); ctx.lineTo(ptL2.x, ptL2.y); ctx.stroke();
+          }
+          const ptR1 = project3D(gx, 0, roadHalfW, cx, groundY);
+          const ptR2 = project3D(gx, 0, 520, cx, groundY);
+          if (ptR1.visible && ptR2.visible) {
+            ctx.beginPath(); ctx.moveTo(ptR1.x, ptR1.y); ctx.lineTo(ptR2.x, ptR2.y); ctx.stroke();
+          }
+        }
+
+        // 2. Asphalt Road Slabs (Length = 80 for crisp, seamless motion)
+        const slabLen = 80;
+        const kSlabMin = Math.floor((xMin - scrollX) / slabLen);
+        const kSlabMax = Math.ceil((xMax - scrollX) / slabLen);
+
+        for (let k = kSlabMin; k <= kSlabMax; k++) {
+          const gx = k * slabLen + scrollX;
+          const p1 = project3D(gx, 0, -roadHalfW, cx, groundY);
+          const p2 = project3D(gx + slabLen, 0, -roadHalfW, cx, groundY);
+          const p3 = project3D(gx + slabLen, 0, roadHalfW, cx, groundY);
+          const p4 = project3D(gx, 0, roadHalfW, cx, groundY);
+
+          if (p1.visible && p2.visible && p3.visible && p4.visible) {
+            const isAlt = (Math.abs(k) % 2 === 0);
+            ctx.fillStyle = isAlt ? 'rgba(20, 27, 40, 0.95)' : 'rgba(14, 20, 30, 0.95)';
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.lineTo(p3.x, p3.y);
+            ctx.lineTo(p4.x, p4.y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Pavement seam line
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+
+            // High-Contrast Red & White FIA Curbs along road edges (+Z and -Z)
+            draw3DCurbSegment(gx, slabLen, roadHalfW, isAlt, cx, groundY);
+          }
+        }
+
+        // 3. Dashed Yellow Lane Divider (Dividing wheel lane and bike lane at Z = 65)
+        const dashSpacing = 70;
+        const dashLen = 42;
+        const kDashMin = Math.floor((xMin - scrollX) / dashSpacing);
+        const kDashMax = Math.ceil((xMax - scrollX) / dashSpacing);
+        for (let k = kDashMin; k <= kDashMax; k++) {
+          const dx = k * dashSpacing + scrollX;
+          const c1 = project3D(dx, 0, 65, cx, groundY);
+          const c2 = project3D(dx + dashLen, 0, 65, cx, groundY);
+          if (c1.visible && c2.visible) {
+            ctx.strokeStyle = 'rgba(255, 183, 3, 0.78)';
+            ctx.lineWidth = Math.max(1.2, 3.2 * c1.scale);
+            ctx.beginPath();
+            ctx.moveTo(c1.x, c1.y);
+            ctx.lineTo(c2.x, c2.y);
+            ctx.stroke();
+          }
+        }
+
+        // 4. Roadside Milestone Pylons (every 160 units along X on both sides)
+        const pylonSpacing = 160;
+        const kPylonMin = Math.floor((xMin - scrollX) / pylonSpacing);
+        const kPylonMax = Math.ceil((xMax - scrollX) / pylonSpacing);
+        for (let k = kPylonMin; k <= kPylonMax; k++) {
+          const px = k * pylonSpacing + scrollX;
+          // Far roadside pylon (at Z = -roadHalfW - 35)
+          draw3DRoadsidePylon(px, -roadHalfW - 35, cx, groundY);
+          // Near roadside pylon (at Z = roadHalfW + 35)
+          draw3DRoadsidePylon(px, roadHalfW + 35, cx, groundY);
+        }
+
+        // 5. Longitudinal edge lines
+        const edgeLeftNear = project3D(-1600, 0, roadHalfW, cx, groundY);
+        const edgeLeftFar = project3D(1600, 0, roadHalfW, cx, groundY);
+        const edgeRightNear = project3D(-1600, 0, -roadHalfW, cx, groundY);
+        const edgeRightFar = project3D(1600, 0, -roadHalfW, cx, groundY);
+
+        ctx.strokeStyle = '#00d2ff';
+        ctx.lineWidth = 2;
+        if (edgeLeftNear.visible && edgeLeftFar.visible) {
+          ctx.beginPath(); ctx.moveTo(edgeLeftNear.x, edgeLeftNear.y); ctx.lineTo(edgeLeftFar.x, edgeLeftFar.y); ctx.stroke();
+        }
+        if (edgeRightNear.visible && edgeRightFar.visible) {
+          ctx.beginPath(); ctx.moveTo(edgeRightNear.x, edgeRightNear.y); ctx.lineTo(edgeRightFar.x, edgeRightFar.y); ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      function draw3DCurbSegment(gx, len, roadHalfW, isAlt, cx, groundY) {
+        const curbW = 16;
+        const curbColor = isAlt ? '#ef4444' : '#f8fafc'; // Alternating Red & White
+
+        // Left Curb (+Z)
+        const cl1 = project3D(gx, 0, roadHalfW, cx, groundY);
+        const cl2 = project3D(gx + len, 0, roadHalfW, cx, groundY);
+        const cl3 = project3D(gx + len, 0, roadHalfW + curbW, cx, groundY);
+        const cl4 = project3D(gx, 0, roadHalfW + curbW, cx, groundY);
+
+        if (cl1.visible && cl2.visible) {
+          ctx.fillStyle = curbColor;
+          ctx.beginPath();
+          ctx.moveTo(cl1.x, cl1.y);
+          ctx.lineTo(cl2.x, cl2.y);
+          ctx.lineTo(cl3.x, cl3.y);
+          ctx.lineTo(cl4.x, cl4.y);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        // Right Curb (-Z)
+        const cr1 = project3D(gx, 0, -roadHalfW - curbW, cx, groundY);
+        const cr2 = project3D(gx + len, 0, -roadHalfW - curbW, cx, groundY);
+        const cr3 = project3D(gx + len, 0, -roadHalfW, cx, groundY);
+        const cr4 = project3D(gx, 0, -roadHalfW, cx, groundY);
+
+        if (cr1.visible && cr2.visible) {
+          ctx.fillStyle = curbColor;
+          ctx.beginPath();
+          ctx.moveTo(cr1.x, cr1.y);
+          ctx.lineTo(cr2.x, cr2.y);
+          ctx.lineTo(cr3.x, cr3.y);
+          ctx.lineTo(cr4.x, cr4.y);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      function draw3DRoadsidePylon(x, z, cx, groundY) {
+        const h = 48;
+        const pBase = project3D(x, 0, z, cx, groundY);
+        const pTop = project3D(x, -h, z, cx, groundY);
+
+        if (pBase.visible && pTop.visible) {
+          const w = 6 * pBase.scale;
+          // Pylon Stem (White/Grey)
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = w;
+          ctx.beginPath();
+          ctx.moveTo(pBase.x, pBase.y);
+          ctx.lineTo(pTop.x, pTop.y);
+          ctx.stroke();
+
+          // Reflective Orange / Yellow Cap
+          const capH = h * 0.28;
+          const pCap = project3D(x, -h + capH, z, cx, groundY);
+          ctx.strokeStyle = '#ffb703';
+          ctx.lineWidth = w * 1.1;
+          ctx.beginPath();
+          ctx.moveTo(pCap.x, pCap.y);
+          ctx.lineTo(pTop.x, pTop.y);
+          ctx.stroke();
+        }
+      }
+
+      function draw3DWorldAxes(cx, groundY, R) {
+        ctx.save();
+        const xStart = project3D(-450, 0, 0, cx, groundY);
+        const xEnd = project3D(550, 0, 0, cx, groundY);
+        if (xStart.visible && xEnd.visible) {
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath(); ctx.moveTo(xStart.x, xStart.y); ctx.lineTo(xEnd.x, xEnd.y); ctx.stroke();
+          ctx.font = '10px var(--font-mono)'; ctx.fillStyle = '#ef4444';
+          ctx.fillText('+X (Road)', xEnd.x + 6, xEnd.y);
+        }
+
+        const yStart = project3D(0, 0, 0, cx, groundY);
+        const yEnd = project3D(0, -R * 2.3, 0, cx, groundY);
+        if (yStart.visible && yEnd.visible) {
+          ctx.strokeStyle = '#22c55e';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath(); ctx.moveTo(yStart.x, yStart.y); ctx.lineTo(yEnd.x, yEnd.y); ctx.stroke();
+          ctx.font = '10px var(--font-mono)'; ctx.fillStyle = '#22c55e';
+          ctx.fillText('+Y (Normal)', yEnd.x + 6, yEnd.y);
+        }
+
+        const zStart = project3D(0, 0, -250, cx, groundY);
+        const zEnd = project3D(0, 0, 350, cx, groundY);
+        if (zStart.visible && zEnd.visible) {
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath(); ctx.moveTo(zStart.x, zStart.y); ctx.lineTo(zEnd.x, zEnd.y); ctx.stroke();
+          ctx.font = '10px var(--font-mono)'; ctx.fillStyle = '#3b82f6';
+          ctx.fillText('+Z (Axle)', zEnd.x + 6, zEnd.y);
+        }
+        ctx.restore();
+      }
+
+      function draw3DSolidWheelEntity(cx, groundY, wheelCenterY, R, W, zFront, zBack) {
+        ctx.save();
+        const numSegments = 36;
+        const rimR = R * wheelEntity.rimInsetRatio;
+        const hubR = rimR * wheelEntity.hubRatio;
+        const axleLen = wheelEntity.axleLengthPx;
+
+        // 1. Protruding Back Axle Cylinder (-Z side)
+        const pBackAxleEnd = project3D(0, wheelCenterY, zBack + axleLen / 2, cx, groundY);
+        const pBackAxleBase = project3D(0, wheelCenterY, zBack, cx, groundY);
+        if (pBackAxleEnd.visible && pBackAxleBase.visible) {
+          ctx.strokeStyle = '#475569';
+          ctx.lineWidth = 6 * pBackAxleBase.scale;
+          ctx.beginPath();
+          ctx.moveTo(pBackAxleBase.x, pBackAxleBase.y);
+          ctx.lineTo(pBackAxleEnd.x, pBackAxleEnd.y);
+          ctx.stroke();
+        }
+
+        // 2. Outer Cylindrical Tyre Tread Band
+        for (let i = 0; i < numSegments; i++) {
+          const a1 = (i / numSegments) * 2 * Math.PI + state.angle;
+          const a2 = ((i + 1) / numSegments) * 2 * Math.PI + state.angle;
+
+          const x1 = Math.sin(a1) * R;
+          const y1 = wheelCenterY - Math.cos(a1) * R;
+          const x2 = Math.sin(a2) * R;
+          const y2 = wheelCenterY - Math.cos(a2) * R;
+
+          const p1f = project3D(x1, y1, zFront, cx, groundY);
+          const p2f = project3D(x2, y2, zFront, cx, groundY);
+          const p2b = project3D(x2, y2, zBack, cx, groundY);
+          const p1b = project3D(x1, y1, zBack, cx, groundY);
+
+          if (!p1f.visible || !p2f.visible) continue;
+
+          const normalAngle = a1 + 0.45;
+          const light = Math.max(0.12, Math.min(0.9, 0.35 + 0.55 * Math.cos(normalAngle)));
+
+          if (wheelEntity.treadStyle === 'rover' && i % 2 === 0) {
+            ctx.fillStyle = `rgb(${Math.floor(45 * light + 15)}, ${Math.floor(55 * light + 18)}, ${Math.floor(75 * light + 22)})`;
+          } else {
+            ctx.fillStyle = `rgb(${Math.floor(22 * light + 10)}, ${Math.floor(28 * light + 12)}, ${Math.floor(38 * light + 14)})`;
+          }
+
+          ctx.beginPath();
+          ctx.moveTo(p1f.x, p1f.y);
+          ctx.lineTo(p2f.x, p2f.y);
+          ctx.lineTo(p2b.x, p2b.y);
+          ctx.lineTo(p1b.x, p1b.y);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        // 3. Front Tyre Sidewall Disc
+        ctx.beginPath();
+        for (let i = 0; i <= numSegments; i++) {
+          const a = (i / numSegments) * 2 * Math.PI + state.angle;
+          const x = Math.sin(a) * R;
+          const y = wheelCenterY - Math.cos(a) * R;
+          const p = project3D(x, y, zFront, cx, groundY);
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.fillStyle = '#141a24';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // 4. Recessed Metallic Rim Disc
+        ctx.beginPath();
+        for (let i = 0; i <= numSegments; i++) {
+          const a = (i / numSegments) * 2 * Math.PI + state.angle;
+          const x = Math.sin(a) * rimR;
+          const y = wheelCenterY - Math.cos(a) * rimR;
+          const p = project3D(x, y, zFront, cx, groundY);
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.fillStyle = '#222b3a';
+        ctx.fill();
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth = 2 * pBackAxleBase.scale;
+        ctx.stroke();
+
+        // 5. Solid 3D Spokes
+        if (state.spokes > 1 && wheelEntity.spokeStyle !== 'disc') {
+          const isWire = wheelEntity.spokeStyle === 'wire';
+          ctx.strokeStyle = isWire ? '#94a3b8' : '#e2e8f0';
+          ctx.lineWidth = isWire ? 1.5 : Math.max(2.5, 5 * pBackAxleBase.scale);
+
+          for (let s = 0; s < state.spokes; s++) {
+            const sa = (s / state.spokes) * 2 * Math.PI + state.angle;
+            const xHub = Math.sin(sa) * hubR;
+            const yHub = wheelCenterY - Math.cos(sa) * hubR;
+            const xRim = Math.sin(sa) * rimR;
+            const yRim = wheelCenterY - Math.cos(sa) * rimR;
+
+            const pHub = project3D(xHub, yHub, zFront, cx, groundY);
+            const pRim = project3D(xRim, yRim, zFront, cx, groundY);
+
+            ctx.beginPath();
+            ctx.moveTo(pHub.x, pHub.y);
+            ctx.lineTo(pRim.x, pRim.y);
+            ctx.stroke();
+          }
+        }
+
+        // 6. High-Vis Amber Marker Dot
+        const mx = Math.sin(state.angle) * (rimR - 4);
+        const my = wheelCenterY - Math.cos(state.angle) * (rimR - 4);
+        const pMarker = project3D(mx, my, zFront - 2, cx, groundY);
+        if (pMarker.visible) {
+          ctx.fillStyle = '#ffb703';
+          ctx.beginPath();
+          ctx.arc(pMarker.x, pMarker.y, 5 * pMarker.scale, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        // 7. Protruding Front Axle Hub Cylinder (+Z side)
+        const pFrontAxleEnd = project3D(0, wheelCenterY, zFront - axleLen / 2, cx, groundY);
+        const pFrontAxleBase = project3D(0, wheelCenterY, zFront, cx, groundY);
+        if (pFrontAxleEnd.visible && pFrontAxleBase.visible) {
+          ctx.strokeStyle = '#64748b';
+          ctx.lineWidth = 7 * pFrontAxleBase.scale;
+          ctx.beginPath();
+          ctx.moveTo(pFrontAxleBase.x, pFrontAxleBase.y);
+          ctx.lineTo(pFrontAxleEnd.x, pFrontAxleEnd.y);
+          ctx.stroke();
+
+          ctx.fillStyle = '#00e5ff';
+          ctx.beginPath();
+          ctx.arc(pFrontAxleEnd.x, pFrontAxleEnd.y, 5 * pFrontAxleEnd.scale, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+
+        // 8. 3D Kinematic Velocity Vectors
+        if (state.showVectors && state.rpm > 0) {
+          const linearSpeedMs = calculateLinearSpeedMs(state.rpm, state.diameterMm);
+          const arrowLen = Math.min(110, Math.max(25, linearSpeedMs * 14 + 25));
+          const dir = state.direction;
+
+          const pAxle = project3D(0, wheelCenterY, zFront, cx, groundY);
+          const pAxleTip = project3D(dir * arrowLen, wheelCenterY, zFront, cx, groundY);
+          if (pAxle.visible && pAxleTip.visible) {
+            drawArrow(pAxle.x, pAxle.y, pAxleTip.x, pAxleTip.y, '#00e5ff', `v = ${linearSpeedMs.toFixed(2)} m/s`);
+          }
+
+          const pTop = project3D(0, wheelCenterY - R, zFront, cx, groundY);
+          const pTopTip = project3D(dir * (arrowLen * 2), wheelCenterY - R, zFront, cx, groundY);
+          if (pTop.visible && pTopTip.visible) {
+            drawArrow(pTop.x, pTop.y, pTopTip.x, pTopTip.y, '#00f59b', `2v = ${(linearSpeedMs * 2).toFixed(2)} m/s`);
+          }
+        }
+
+        ctx.restore();
+      }
+
+      function draw3DCycloid(cx, groundY, R) {
+        ctx.save();
+        ctx.beginPath();
+        let started = false;
+
+        for (let i = 0; i < state.cycloidPoints.length; i++) {
+          const pt = state.cycloidPoints[i];
+          const p3d = project3D(pt.x - cx, pt.y - groundY, -wheelEntity.thicknessPx / 2, cx, groundY);
+          if (!p3d.visible) continue;
+
+          if (!started) {
+            ctx.moveTo(p3d.x, p3d.y);
+            started = true;
+          } else {
+            ctx.lineTo(p3d.x, p3d.y);
+          }
+        }
+
+        ctx.strokeStyle = 'rgba(255, 183, 3, 0.75)';
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // --- 3D Ghost Bicycle Entity (True 3D Geometry in Parallel Lane) ---
+      function draw3DGhostBike(cx, groundY) {
+        ctx.save();
+        const bikeZ = 130; // Parallel lane in +Z
+        let bikeX;
+        if (bikeEntity.mode === 'lap') {
+          bikeX = bikeEntity.lapX - (viewWidth / 2);
+        } else {
+          bikeX = bikeEntity.relativeOffsetPx;
+        }
+
+        const rwCenter = project3D(bikeX - 35, -20, bikeZ, cx, groundY);
+        const fwCenter = project3D(bikeX + 35, -20, bikeZ, cx, groundY);
+        const bb = project3D(bikeX, -20, bikeZ, cx, groundY);
+        const saddle = project3D(bikeX - 12, -50, bikeZ, cx, groundY);
+        const bars = project3D(bikeX + 24, -54, bikeZ, cx, groundY);
+        const head = project3D(bikeX + 8, -74, bikeZ, cx, groundY);
+        const shoulders = project3D(bikeX + 6, -62, bikeZ, cx, groundY);
+
+        if (rwCenter.visible && fwCenter.visible && bb.visible) {
+          const s = rwCenter.scale;
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = Math.max(1, 2.2 * s);
+
+          // 1. Frame Lines in 3D
+          ctx.beginPath();
+          ctx.moveTo(rwCenter.x, rwCenter.y);
+          ctx.lineTo(saddle.x, saddle.y);
+          ctx.lineTo(bb.x, bb.y);
+          ctx.lineTo(rwCenter.x, rwCenter.y);
+          ctx.lineTo(fwCenter.x, fwCenter.y);
+          ctx.moveTo(bb.x, bb.y);
+          ctx.lineTo(bars.x, bars.y);
+          ctx.lineTo(saddle.x, saddle.y);
+          ctx.moveTo(bars.x, bars.y);
+          ctx.lineTo(fwCenter.x, fwCenter.y);
+          ctx.stroke();
+
+          // 2. 3D Rotating Wheels (16-sided polygon in 3D world space)
+          const bikeR = 20;
+          const numSegs = 16;
+          // Rear Wheel Rim
+          ctx.beginPath();
+          for (let i = 0; i <= numSegs; i++) {
+            const a = (i / numSegs) * 2 * Math.PI;
+            const p = project3D(bikeX - 35 + Math.sin(a) * bikeR, -20 - Math.cos(a) * bikeR, bikeZ, cx, groundY);
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          }
+          ctx.stroke();
+          // Front Wheel Rim
+          ctx.beginPath();
+          for (let i = 0; i <= numSegs; i++) {
+            const a = (i / numSegs) * 2 * Math.PI;
+            const p = project3D(bikeX + 35 + Math.sin(a) * bikeR, -20 - Math.cos(a) * bikeR, bikeZ, cx, groundY);
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          }
+          ctx.stroke();
+
+          // 3. 3D Rotating Spokes
+          const ba = bikeEntity.wheelAngle;
+          ctx.lineWidth = Math.max(1, 1.1 * s);
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
+          ctx.beginPath();
+          for (let sp = 0; sp < 4; sp++) {
+            const ang = ba + (sp * Math.PI / 4);
+            const pr1 = project3D(bikeX - 35 + Math.sin(ang) * bikeR, -20 - Math.cos(ang) * bikeR, bikeZ, cx, groundY);
+            const pr2 = project3D(bikeX - 35 - Math.sin(ang) * bikeR, -20 + Math.cos(ang) * bikeR, bikeZ, cx, groundY);
+            ctx.moveTo(pr1.x, pr1.y); ctx.lineTo(pr2.x, pr2.y);
+            const pf1 = project3D(bikeX + 35 + Math.sin(ang) * bikeR, -20 - Math.cos(ang) * bikeR, bikeZ, cx, groundY);
+            const pf2 = project3D(bikeX + 35 - Math.sin(ang) * bikeR, -20 + Math.cos(ang) * bikeR, bikeZ, cx, groundY);
+            ctx.moveTo(pf1.x, pf1.y); ctx.lineTo(pf2.x, pf2.y);
+          }
+          ctx.stroke();
+
+          // 4. Rider Silhouette in 3D
+          if (head.visible && shoulders.visible) {
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+            ctx.lineWidth = Math.max(1, 1.8 * s);
+            ctx.beginPath();
+            ctx.moveTo(saddle.x, saddle.y);
+            ctx.lineTo(shoulders.x, shoulders.y);
+            ctx.lineTo(bars.x, bars.y);
+            ctx.stroke();
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(head.x, head.y, 5 * s, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Speed Tag
+            ctx.font = `${Math.max(9, Math.floor(10 * s))}px var(--font-mono)`;
+            ctx.fillStyle = bikeEntity.isMatched ? '#00f59b' : '#38bdf8';
+            const label = bikeEntity.isMatched
+              ? `🚲 Bike ${bikeEntity.speedKmh.toFixed(1)} km/h (Matched)`
+              : `🚲 Bike ${bikeEntity.speedKmh.toFixed(1)} km/h`;
+            ctx.fillText(label, rwCenter.x - 10 * s, head.y - 8 * s);
+          }
+        }
+        ctx.restore();
+      }
+
+      // ============================================================
+      // 2D ROAD WITH FIA CURB, ASPHALT SLABS & DASHED MARKINGS
+      // ============================================================
+
+      function draw2DScene(cx, cy, R) {
+        const groundY = Math.floor(viewHeight * 0.74);
+
+        // 1. Sky & Ground
+        ctx.fillStyle = '#0a0d14';
+        ctx.fillRect(0, 0, viewWidth, groundY);
+
+        // 2. High-Contrast Infinite Road Pattern & FIA Red/White Curbs
+        if (state.showGrid) {
+          draw2DInfiniteRoadPattern(groundY);
+        }
+
+        // 3. Pacing Ghost Bicycle
+        if (state.showGhostBike) {
+          draw2DGhostBike(cx, groundY, R);
+        }
+
+        // 4. Cycloid Path
+        if (state.showCycloid) {
+          draw2DCycloid(groundY);
+        }
+
+        // 5. 2D Wheel
+        draw2DWheel(cx, cy, R);
+
+        // 6. Kinematic Vectors
+        if (state.showVectors) {
+          const linearSpeedMs = calculateLinearSpeedMs(state.rpm, state.diameterMm);
+          drawKinematicVectors(cx, cy, R, linearSpeedMs);
+        }
+      }
+
+      function draw2DInfiniteRoadPattern(groundY) {
+        ctx.save();
+        const roadHeight = viewHeight - groundY;
+        const scrollX = state.groundOffsetPx;
+
+        // 1. Alternating Concrete / Asphalt Slabs (Width = 60px with persistent index k)
+        const slabW = 60;
+        const kSlabMin = Math.floor((-slabW - scrollX) / slabW);
+        const kSlabMax = Math.ceil((viewWidth + slabW - scrollX) / slabW);
+
+        for (let k = kSlabMin; k <= kSlabMax; k++) {
+          const x = k * slabW + scrollX;
+          const isAlt = (Math.abs(k) % 2 === 0);
+
+          // Pavement slab body
+          ctx.fillStyle = isAlt ? '#131b28' : '#0e1420';
+          ctx.fillRect(x, groundY, slabW, roadHeight);
+
+          // Expansion joint lines
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x, groundY);
+          ctx.lineTo(x, viewHeight);
+          ctx.stroke();
+
+          // Subtle groove highlight
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x + 1, groundY);
+          ctx.lineTo(x + 1, viewHeight);
+          ctx.stroke();
+        }
+
+        // 2. Dashed Highway Centerline (Yellow dashes)
+        const dashPeriod = 64;
+        const dashW = 40;
+        const kDashMin = Math.floor((-dashPeriod - scrollX) / dashPeriod);
+        const kDashMax = Math.ceil((viewWidth + dashPeriod - scrollX) / dashPeriod);
+        ctx.fillStyle = '#ffb703';
+        for (let k = kDashMin; k <= kDashMax; k++) {
+          const dx = k * dashPeriod + scrollX;
+          ctx.fillRect(dx, groundY + 36, dashW, 4);
+        }
+
+        // 3. High-Contrast Red & White FIA Race Curbs along top contact edge
+        const curbSegmentW = 28;
+        const curbH = 7;
+        const kCurbMin = Math.floor((-curbSegmentW - scrollX) / curbSegmentW);
+        const kCurbMax = Math.ceil((viewWidth + curbSegmentW - scrollX) / curbSegmentW);
+
+        for (let k = kCurbMin; k <= kCurbMax; k++) {
+          const cxPos = k * curbSegmentW + scrollX;
+          const isRed = (Math.abs(k) % 2 === 0);
+          ctx.fillStyle = isRed ? '#ef4444' : '#f8fafc';
+          ctx.fillRect(cxPos, groundY - curbH, curbSegmentW, curbH);
+
+          // Curb bevel
+          ctx.fillStyle = isRed ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.12)';
+          ctx.fillRect(cxPos, groundY - 2, curbSegmentW, 2);
+        }
+
+        // 4. Metric Distance Calibration Ticks (Physical real-world meter intervals)
+        const drawnR = getDrawnRadiusPx();
+        const pxPerM = (2 * drawnR) / Math.max(0.02, state.diameterMm / 1000);
+        const meterIntervalPx = Math.max(30, pxPerM);
+        const subIntervalPx = meterIntervalPx / 4; // 0.25m ticks
+        const kTickMin = Math.floor((-meterIntervalPx - scrollX) / subIntervalPx);
+        const kTickMax = Math.ceil((viewWidth + meterIntervalPx - scrollX) / subIntervalPx);
+
+        for (let k = kTickMin; k <= kTickMax; k++) {
+          const tx = k * subIntervalPx + scrollX;
+          const isMajorMeter = (Math.abs(k) % 4 === 0);
+
+          if (isMajorMeter) {
+            // Major Meter Tick (1.0m)
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(tx, groundY + curbH);
+            ctx.lineTo(tx, groundY + 20);
+            ctx.stroke();
+
+            // Distance label
+            const meterNum = Math.abs(Math.round(state.distanceTraveledM - ((tx - viewWidth / 2) / pxPerM)));
+            ctx.fillStyle = '#93c5fd';
+            ctx.font = '9px var(--font-mono)';
+            ctx.fillText(`${meterNum}m`, tx + 4, groundY + 18);
+          } else {
+            // Minor tick (0.25m / 0.5m)
+            ctx.strokeStyle = 'rgba(147, 197, 253, 0.35)';
+            ctx.lineWidth = 1.0;
+            ctx.beginPath();
+            ctx.moveTo(tx, groundY + curbH);
+            ctx.lineTo(tx, groundY + 13);
+            ctx.stroke();
+          }
+        }
+
+        // 5. Baseline Edge Line
+        ctx.strokeStyle = '#00d2ff';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(0, groundY);
+        ctx.lineTo(viewWidth, groundY);
+        ctx.stroke();
+
+        // 6. Contact Patch ICR
+        if (state.showContactPatch) {
+          const cx = viewWidth / 2;
+          ctx.fillStyle = '#ff3366';
+          ctx.beginPath(); ctx.arc(cx, groundY, 4, 0, 2 * Math.PI); ctx.fill();
+          ctx.fillStyle = 'rgba(255, 51, 102, 0.9)';
+          ctx.font = '9px var(--font-mono)';
+          ctx.textAlign = 'center';
+          const label = state.slipRatio === 0 ? 'ICR (v = 0)' : `Slip ${(state.slipRatio * 100).toFixed(0)}%`;
+          ctx.fillText(label, cx, groundY + 34);
+        }
+
+        ctx.restore();
+      }
+
+      // --- 2D Ghost Bicycle: Side-by-Side Pacing in Lockstep ---
+      function draw2DGhostBike(cx, groundY, drawnRadiusPx) {
+        ctx.save();
+        const s = 0.95;
+        let bx, by;
+
+        if (bikeEntity.mode === 'lap') {
+          bx = bikeEntity.lapX;
+          by = groundY;
+        } else {
+          // Position beside the wheel:
+          // Front wheel of bike is adjacent to wheel rim with safe clearance
+          const baseSideOffset = -(drawnRadiusPx + 95);
+          bx = cx + baseSideOffset + bikeEntity.relativeOffsetPx;
+          by = groundY;
+        }
+
+        const rwX = bx - 30 * s;
+        const fwX = bx + 30 * s;
+        const wheelR = 16 * s;
+        const wY = by - wheelR;
+        const bbX = bx;
+        const bbY = by - 18 * s;
+        const saddleX = bx - 10 * s;
+        const saddleY = by - 46 * s;
+        const barX = bx + 20 * s;
+        const barY = by - 48 * s;
+
+        // 1. Rotating Wheels
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath(); ctx.arc(rwX, wY, wheelR, 0, 2 * Math.PI); ctx.stroke();
+        ctx.beginPath(); ctx.arc(fwX, wY, wheelR, 0, 2 * Math.PI); ctx.stroke();
+
+        // 2. Spokes (4 pairs rotating at true bike cadence)
+        const ba = bikeEntity.wheelAngle;
+        ctx.lineWidth = 1.0;
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+        ctx.beginPath();
+        for (let sp = 0; sp < 4; sp++) {
+          const ang = ba + (sp * Math.PI / 4);
+          ctx.moveTo(rwX - Math.cos(ang) * wheelR, wY - Math.sin(ang) * wheelR);
+          ctx.lineTo(rwX + Math.cos(ang) * wheelR, wY + Math.sin(ang) * wheelR);
+          ctx.moveTo(fwX - Math.cos(ang) * wheelR, wY - Math.sin(ang) * wheelR);
+          ctx.lineTo(fwX + Math.cos(ang) * wheelR, wY + Math.sin(ang) * wheelR);
+        }
+        ctx.stroke();
+
+        // 3. Bicycle Frame Tubes
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        // Rear triangle
+        ctx.moveTo(rwX, wY);
+        ctx.lineTo(saddleX, saddleY);
+        ctx.lineTo(bbX, bbY);
+        ctx.lineTo(rwX, wY);
+        // Main triangle
+        ctx.lineTo(fwX, wY);
+        ctx.moveTo(bbX, bbY);
+        ctx.lineTo(barX, barY);
+        ctx.lineTo(saddleX, saddleY);
+        ctx.moveTo(barX, barY);
+        ctx.lineTo(fwX, wY);
+        ctx.stroke();
+
+        // 4. Handlebars & Saddle
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 2.5;
+        // Saddle
+        ctx.beginPath();
+        ctx.moveTo(saddleX - 8 * s, saddleY);
+        ctx.lineTo(saddleX + 8 * s, saddleY - 2 * s);
+        ctx.stroke();
+        // Handlebars
+        ctx.beginPath();
+        ctx.moveTo(barX - 4 * s, barY - 2 * s);
+        ctx.lineTo(barX + 6 * s, barY - 4 * s);
+        ctx.stroke();
+
+        // 5. Rotating Pedals / Crank
+        const ca = bikeEntity.crankAngle;
+        const crankR = 9 * s;
+        ctx.strokeStyle = '#ffb703';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(bbX - Math.cos(ca) * crankR, bbY - Math.sin(ca) * crankR);
+        ctx.lineTo(bbX + Math.cos(ca) * crankR, bbY + Math.sin(ca) * crankR);
+        ctx.stroke();
+
+        // 6. Rider Silhouette
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+        ctx.lineWidth = 1.6;
+        const hipX = saddleX;
+        const hipY = saddleY - 4 * s;
+        const shoulderX = bx + 4 * s;
+        const shoulderY = by - 62 * s;
+        const headX = bx + 8 * s;
+        const headY = by - 74 * s;
+
+        // Torso & Head
+        ctx.beginPath();
+        ctx.moveTo(hipX, hipY);
+        ctx.lineTo(shoulderX, shoulderY);
+        ctx.lineTo(barX, barY);
+        ctx.stroke();
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(headX, headY, 6 * s, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Speed / Status Tag
+        ctx.font = '10px var(--font-mono)';
+        ctx.fillStyle = bikeEntity.isMatched ? '#00f59b' : '#38bdf8';
+        const tagText = bikeEntity.isMatched
+          ? `🚲 Bike ${bikeEntity.speedKmh.toFixed(1)} km/h (Matched)`
+          : `🚲 Bike ${bikeEntity.speedKmh.toFixed(1)} km/h`;
+        ctx.fillText(tagText, bx - 38 * s, by - 82 * s);
+
+        ctx.restore();
+      }
+
+      function draw2DCycloid(groundY) {
+        if (state.cycloidPoints.length < 2) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(state.cycloidPoints[0].x, state.cycloidPoints[0].y);
+        for (let i = 1; i < state.cycloidPoints.length; i++) {
+          ctx.lineTo(state.cycloidPoints[i].x, state.cycloidPoints[i].y);
+        }
+        ctx.strokeStyle = 'rgba(255, 183, 3, 0.75)';
+        ctx.lineWidth = 2.2;
+        ctx.shadowColor = 'rgba(255, 183, 3, 0.5)';
+        ctx.shadowBlur = 6;
+        ctx.stroke();
+
+        for (let i = 0; i < state.cycloidPoints.length; i++) {
+          const pt = state.cycloidPoints[i];
+          if (Math.abs(pt.y - groundY) <= 3) {
+            ctx.fillStyle = '#ffb703';
+            ctx.beginPath(); ctx.arc(pt.x, groundY, 3, 0, 2 * Math.PI); ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      function draw2DWheel(cx, cy, R) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(state.angle);
+
+        const tyreWidth = Math.max(10, R * 0.22);
+        const rimRadius = R - tyreWidth;
+        const hubRadius = Math.max(6, rimRadius * 0.28);
+
+        // Tyre
+        const tyreGrad = ctx.createRadialGradient(0, 0, rimRadius, 0, 0, R);
+        tyreGrad.addColorStop(0, '#1c222d');
+        tyreGrad.addColorStop(0.5, '#12161f');
+        tyreGrad.addColorStop(1, '#0b0e14');
+        ctx.beginPath(); ctx.arc(0, 0, R, 0, 2 * Math.PI);
+        ctx.fillStyle = tyreGrad; ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(0, 0, R - 2, 0, 2 * Math.PI); ctx.stroke();
+
+        // Treads
+        const numTreads = Math.max(16, Math.floor(R * 0.4));
+        const treadDepth = Math.max(4, tyreWidth * 0.35);
+        const treadWidth = (2 * Math.PI * R) / (numTreads * 2.2);
+
+        ctx.fillStyle = '#262f3e';
+        for (let i = 0; i < numTreads; i++) {
+          const treadAngle = (i * 2 * Math.PI) / numTreads;
+          ctx.save();
+          ctx.rotate(treadAngle);
+          ctx.fillRect(-treadWidth / 2, -R + 2, treadWidth, treadDepth);
+          ctx.restore();
+        }
+
+        // Rim
+        const rimGrad = ctx.createRadialGradient(0, 0, hubRadius, 0, 0, rimRadius);
+        rimGrad.addColorStop(0, '#2d3748');
+        rimGrad.addColorStop(0.7, '#1a202c');
+        rimGrad.addColorStop(1, '#11151c');
+        ctx.beginPath(); ctx.arc(0, 0, rimRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = rimGrad; ctx.fill();
+
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(0, 0, rimRadius - 2, 0, 2 * Math.PI); ctx.stroke();
+
+        // Spokes
+        if (state.spokes > 1) {
+          ctx.lineWidth = Math.max(2.5, rimRadius * 0.08);
+          for (let i = 0; i < state.spokes; i++) {
+            const spokeAngle = (i * 2 * Math.PI) / state.spokes;
+            ctx.save();
+            ctx.rotate(spokeAngle);
+            const spokeGrad = ctx.createLinearGradient(0, hubRadius, 0, rimRadius);
+            spokeGrad.addColorStop(0, '#e2e8f0');
+            spokeGrad.addColorStop(1, '#64748b');
+            ctx.strokeStyle = spokeGrad;
+            ctx.beginPath(); ctx.moveTo(0, hubRadius); ctx.lineTo(0, rimRadius - 3); ctx.stroke();
+            ctx.restore();
+          }
+        }
+
+        // Marker Dot
+        ctx.save();
+        const markerRadius = Math.max(4, R * 0.06);
+        const markerDistance = rimRadius - markerRadius - 3;
+        ctx.fillStyle = 'rgba(255, 183, 3, 0.35)';
+        ctx.beginPath(); ctx.arc(0, -markerDistance, markerRadius * 2, 0, 2 * Math.PI); ctx.fill();
+        ctx.fillStyle = '#ffb703';
+        ctx.beginPath(); ctx.arc(0, -markerDistance, markerRadius, 0, 2 * Math.PI); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(0, -markerDistance, markerRadius * 0.4, 0, 2 * Math.PI); ctx.fill();
+        ctx.restore();
+
+        // Hub
+        ctx.beginPath(); ctx.arc(0, 0, hubRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = '#1e293b'; ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, hubRadius * 0.28, 0, 2 * Math.PI);
+        ctx.fillStyle = '#00e5ff'; ctx.fill();
+
+        ctx.restore();
+      }
+
+      function drawKinematicVectors(cx, cy, R, linearSpeedMs) {
+        if (state.rpm === 0) return;
+        const arrowScale = Math.min(100, Math.max(20, Math.abs(linearSpeedMs) * 14 + 20));
+        const dir = state.direction;
+
+        drawArrow(cx, cy, cx + dir * arrowScale, cy, '#00e5ff', `v = ${linearSpeedMs.toFixed(2)} m/s`);
+        drawArrow(cx, cy - R, cx + dir * (arrowScale * 2), cy - R, '#00f59b', `2v = ${(linearSpeedMs * 2).toFixed(2)} m/s`);
+      }
+
+      function drawArrow(fromX, fromY, toX, toY, color, labelText) {
+        const headLength = 9;
+        const dx = toX - fromX;
+        const dy = toY - fromY;
+        const angle = Math.atan2(dy, dx);
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 2.2;
+
+        ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.lineTo(toX, toY); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(toX - headLength * Math.cos(angle - Math.PI / 6), toY - headLength * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI / 6), toY - headLength * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+
+        if (labelText) {
+          ctx.font = '10px var(--font-mono)';
+          ctx.fillStyle = '#ffffff';
+          ctx.shadowColor = 'rgba(0,0,0,0.8)';
+          ctx.shadowBlur = 4;
+          ctx.textAlign = 'left';
+          ctx.fillText(labelText, toX + 6, toY - 4);
+        }
+        ctx.restore();
+      }
+
+      // ============================================================
+      // MAIN ANIMATION & UPDATE LOOP
+      // ============================================================
+      let fpsUpdateCounter = 0;
+
+      function frame(now) {
+        let dt = (now - state.lastTime) / 1000;
+        state.lastTime = now;
+        if (dt > 0.1) dt = 0.1;
+        state.dt = dt;
+
+        fpsUpdateCounter++;
+        if (fpsUpdateCounter % 6 === 0) {
+          state.fps = 1 / (dt || 0.016);
+          dtReadout.textContent = `${(dt * 1000).toFixed(1)}ms`;
+          fpsReadout.textContent = Math.round(state.fps);
+        }
+
+        const omega = calculateOmega(state.rpm);
+        const linearSpeedMs = calculateLinearSpeedMs(state.rpm, state.diameterMm);
+        const drawnRadiusPx = getDrawnRadiusPx();
+
+        const groundY = Math.floor(viewHeight * (state.viewMode === '3d' ? 0.72 : 0.74));
+        const cx = Math.floor(viewWidth / 2);
+        const cy = groundY - drawnRadiusPx;
+
+        // Camera update in 3D
+        camera.update();
+
+        // Update Physics
+        if (state.isRunning) {
+          const effectiveDt = dt * state.timeScale;
+          const deltaAngle = state.direction * omega * effectiveDt;
+          state.angle += deltaAngle;
+
+          const groundDeltaPx = state.direction * omega * drawnRadiusPx * (1 - state.slipRatio) * effectiveDt;
+          state.groundOffsetPx -= groundDeltaPx;
+
+          // Update Ghost Bicycle position & cadence
+          bikeEntity.update(dt, linearSpeedMs);
+
+          // Cycloid path
+          if (state.showCycloid) {
+            for (let i = 0; i < state.cycloidPoints.length; i++) {
+              state.cycloidPoints[i].x -= groundDeltaPx;
+            }
+            const markerX = cx + Math.sin(state.angle) * drawnRadiusPx;
+            const markerY = cy - Math.cos(state.angle) * drawnRadiusPx;
+            state.cycloidPoints.push({ x: markerX, y: markerY });
+            state.cycloidPoints = state.cycloidPoints.filter(p => p.x >= -140 && p.x <= viewWidth + 140);
+          }
+
+          state.distanceTraveledM += linearSpeedMs * effectiveDt;
+          state.revolutionsCount = state.distanceTraveledM / ((Math.PI * state.diameterMm) / 1000);
+
+          evaluateAliasing(Math.abs(deltaAngle));
+        }
+
+        // Render Canvas
+        ctx.clearRect(0, 0, viewWidth, viewHeight);
+
+        if (state.viewMode === '3d') {
+          draw3DScene(cx, cy, drawnRadiusPx);
+        } else {
+          draw2DScene(cx, cy, drawnRadiusPx);
+        }
+
+        // Update HUD
+        updateHUD(omega, linearSpeedMs, drawnRadiusPx);
+
+        requestAnimationFrame(frame);
+      }
+
+      requestAnimationFrame(frame);
+
+      // ============================================================
+      // INTERACTIVE CANVAS GESTURES: ORBIT, PAN, SPIN & ZOOM
+      // ============================================================
+      let isInteracting = false;
+      let dragStartX = 0;
+      let dragStartY = 0;
+      let dragMouseButton = 0;
+
+      canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      canvas.addEventListener('pointerdown', (e) => {
+        isInteracting = true;
+        canvas.setPointerCapture(e.pointerId);
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragMouseButton = e.button;
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        if (!isInteracting) return;
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+
+        if (state.viewMode === '3d') {
+          if (dragMouseButton === 2 || e.shiftKey) {
+            // Pan
+            camera.targetPanX += dx * 0.8;
+            camera.targetPanY += dy * 0.8;
+          } else {
+            // Orbit
+            camera.targetYaw += dx * 0.007;
+            camera.targetPitch = Math.max(0.04, Math.min(Math.PI / 2 - 0.04, camera.targetPitch + dy * 0.006));
+          }
+        } else {
+          // 2D Spin
+          state.angle += (dx / getDrawnRadiusPx());
+        }
+      });
+
+      canvas.addEventListener('pointerup', (e) => {
+        if (isInteracting) {
+          isInteracting = false;
+          try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+      });
+
+      canvas.addEventListener('pointercancel', () => { isInteracting = false; });
+
+      // Mouse Wheel Zoom in 3D
+      canvas.addEventListener('wheel', (e) => {
+        if (state.viewMode === '3d') {
+          e.preventDefault();
+          camera.targetDistance = Math.max(250, Math.min(1400, camera.targetDistance + e.deltaY * 0.8));
+        }
+      }, { passive: false });
+
+      // Camera Presets
+      document.querySelectorAll('.cam-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          camera.setPreset(btn.dataset.view);
+        });
+      });
+
+      // --- View Mode Buttons (2D vs 3D) ---
+      btnView2D.addEventListener('click', () => {
+        state.viewMode = '2d';
+        btnView2D.classList.add('active');
+        btnView3D.classList.remove('active');
+        cameraToolbar.classList.remove('visible');
+        canvasHint.textContent = '🖐 Drag wheel to spin';
+      });
+
+      btnView3D.addEventListener('click', () => {
+        state.viewMode = '3d';
+        btnView3D.classList.add('active');
+        btnView2D.classList.remove('active');
+        cameraToolbar.classList.add('visible');
+        canvasHint.textContent = '🖐 Orbit: Left-drag | Pan: Right-drag | Zoom: Scroll';
+      });
+
+      // --- Controls & Sliders ---
+      function setRpm(val) {
+        const rpm = Math.max(0, Math.min(3000, Number(val) || 0));
+        state.rpm = rpm;
+        rpmInput.value = rpm;
+        rpmSlider.value = Math.min(600, rpm);
+      }
+
+      function setDiameter(val) {
+        const dia = Math.max(10, Math.min(2500, Number(val) || 10));
+        state.diameterMm = dia;
+        diameterInput.value = dia;
+        diameterSlider.value = Math.min(700, dia);
+      }
+
+      rpmInput.addEventListener('input', (e) => setRpm(e.target.value));
+      rpmSlider.addEventListener('input', (e) => setRpm(e.target.value));
+      rpmMinusBtn.addEventListener('click', () => setRpm(state.rpm - (state.rpm > 100 ? 25 : 5)));
+      rpmPlusBtn.addEventListener('click', () => setRpm(state.rpm + (state.rpm >= 100 ? 25 : 5)));
+
+      diameterInput.addEventListener('input', (e) => setDiameter(e.target.value));
+      diameterSlider.addEventListener('input', (e) => setDiameter(e.target.value));
+      diaMinusBtn.addEventListener('click', () => setDiameter(state.diameterMm - (state.diameterMm > 200 ? 25 : 5)));
+      diaPlusBtn.addEventListener('click', () => setDiameter(state.diameterMm + (state.diameterMm >= 200 ? 25 : 5)));
+
+      // Transport Buttons
+      playPauseBtn.addEventListener('click', () => {
+        state.isRunning = !state.isRunning;
+        if (state.isRunning) {
+          playPauseBtn.classList.remove('active');
+          playPauseIcon.textContent = '⏸';
+          playPauseLabel.textContent = 'Pause';
+          state.lastTime = performance.now();
+        } else {
+          playPauseBtn.classList.add('active');
+          playPauseIcon.textContent = '▶';
+          playPauseLabel.textContent = 'Play';
+        }
+      });
+
+      reverseBtn.addEventListener('click', () => {
+        state.direction *= -1;
+        directionLabel.textContent = state.direction === 1 ? 'Fwd' : 'Rev';
+        reverseBtn.classList.toggle('active', state.direction === -1);
+      });
+
+      resetDistBtn.addEventListener('click', () => {
+        state.distanceTraveledM = 0;
+        state.revolutionsCount = 0;
+        state.groundOffsetPx = 0;
+        state.cycloidPoints = [];
+        bikeEntity.relativeOffsetPx = 0;
+        bikeEntity.lapX = -90;
+        showToast('Reset Distance, Turns & Cadence');
+      });
+
+      timeScaleGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('.scale-btn');
+        if (!btn) return;
+        timeScaleGroup.querySelectorAll('.scale-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.timeScale = parseFloat(btn.dataset.scale);
+      });
+
+      // --- Popover Handling ---
+      const popovers = [popoverBike, popoverPresets, popoverWheelEntity, popoverSlip, popoverGears, popoverLayers, popoverExport];
+
+      function closeAllPopovers() {
+        popovers.forEach(p => p.classList.remove('open'));
+        document.querySelectorAll('.dock-group .tool-btn, .btn-cluster .tool-btn').forEach(b => {
+          if (b !== playPauseBtn && b !== reverseBtn && b !== btnBikeCompare) b.classList.remove('active');
+        });
+      }
+
+      function togglePopover(popover, triggerBtn) {
+        const isOpen = popover.classList.contains('open');
+        closeAllPopovers();
+        if (!isOpen) {
+          popover.classList.add('open');
+          triggerBtn.classList.add('active');
+        }
+      }
+
+      btnBikeCompare.addEventListener('click', () => togglePopover(popoverBike, btnBikeCompare));
+      btnPresets.addEventListener('click', () => togglePopover(popoverPresets, btnPresets));
+      btnWheelEntity.addEventListener('click', () => togglePopover(popoverWheelEntity, btnWheelEntity));
+      btnSlip.addEventListener('click', () => togglePopover(popoverSlip, btnSlip));
+      btnGears.addEventListener('click', () => togglePopover(popoverGears, btnGears));
+      btnLayers.addEventListener('click', () => togglePopover(popoverLayers, btnLayers));
+      btnExport.addEventListener('click', () => togglePopover(popoverExport, btnExport));
+
+      document.querySelectorAll('[data-close]').forEach(btn => {
+        btn.addEventListener('click', closeAllPopovers);
+      });
+
+      canvas.addEventListener('pointerdown', closeAllPopovers);
+
+      // --- Bicycle Speed Adjustment Controls ---
+      function updateBikeSpeedUI(val) {
+        bikeEntity.setSpeed(val);
+        bikeSpeedInput.value = bikeEntity.speedKmh.toFixed(1);
+        bikeSpeedSlider.value = bikeEntity.speedKmh;
+
+        document.querySelectorAll('[data-bikespeed]').forEach(b => {
+          b.classList.toggle('active', Math.abs(Number(b.dataset.bikespeed) - bikeEntity.speedKmh) < 0.6);
+        });
+
+        document.querySelectorAll('.speed-ladder-item').forEach(item => {
+          item.classList.remove('active-bike');
+        });
+        if (Math.abs(bikeEntity.speedKmh - 20) < 0.6) {
+          const lb = document.getElementById('ladderBike');
+          if (lb) lb.classList.add('active-bike');
+        } else if (Math.abs(bikeEntity.speedKmh - 35) < 0.6) {
+          const lrb = document.getElementById('ladderRoadBike');
+          if (lrb) lrb.classList.add('active-bike');
+        } else if (Math.abs(bikeEntity.speedKmh - 5) < 0.6) {
+          const lw = document.getElementById('ladderWalk');
+          if (lw) lw.classList.add('active-bike');
+        } else if (Math.abs(bikeEntity.speedKmh - 12) < 0.6) {
+          const lj = document.getElementById('ladderJog');
+          if (lj) lj.classList.add('active-bike');
+        } else if (Math.abs(bikeEntity.speedKmh - 0.14) < 0.05) {
+          const lr = document.getElementById('ladderRover');
+          if (lr) lr.classList.add('active-bike');
+        }
+      }
+
+      bikeSpeedInput.addEventListener('input', (e) => updateBikeSpeedUI(e.target.value));
+      bikeSpeedSlider.addEventListener('input', (e) => updateBikeSpeedUI(e.target.value));
+      bikeSpeedMinusBtn.addEventListener('click', () => updateBikeSpeedUI(Math.max(0.5, bikeEntity.speedKmh - 1)));
+      bikeSpeedPlusBtn.addEventListener('click', () => updateBikeSpeedUI(bikeEntity.speedKmh + 1));
+
+      // Bicycle Motion Mode Selector (Side-by-Side Pacing vs Start-to-End Lap)
+      const btnBikeModeRelative = document.getElementById('btnBikeModeRelative');
+      const btnBikeModeLap = document.getElementById('btnBikeModeLap');
+
+      if (btnBikeModeRelative && btnBikeModeLap) {
+        btnBikeModeRelative.addEventListener('click', () => {
+          bikeEntity.mode = 'relative';
+          btnBikeModeRelative.classList.add('active');
+          btnBikeModeLap.classList.remove('active');
+          bikeEntity.relativeOffsetPx = 0;
+          showToast('Bicycle Mode: Side-by-Side Pacing');
+        });
+
+        btnBikeModeLap.addEventListener('click', () => {
+          bikeEntity.mode = 'lap';
+          btnBikeModeLap.classList.add('active');
+          btnBikeModeRelative.classList.remove('active');
+          bikeEntity.lapX = -90;
+          showToast('Bicycle Mode: Start-to-End Lap');
+        });
+      }
+
+      // Quick Speed Presets
+      document.querySelectorAll('[data-bikespeed]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          updateBikeSpeedUI(btn.dataset.bikespeed);
+        });
+      });
+
+      // Interactive Speed Ladder Items
+      const ladderMap = {
+        ladderRover: 0.14,
+        ladderWalk: 5.0,
+        ladderJog: 12.0,
+        ladderBike: 20.0,
+        ladderRoadBike: 35.0
+      };
+      Object.entries(ladderMap).forEach(([id, kmh]) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('click', () => {
+            updateBikeSpeedUI(kmh);
+            showToast(`Bicycle set to ${kmh} km/h`);
+          });
+        }
+      });
+
+      // Match Wheel to Bike (Exact physical calculation with zero slip drift)
+      btnMatchWheelToBike.addEventListener('click', () => {
+        const bikeMs = bikeEntity.speedMs;
+        const effectiveDiaM = Math.max(0.01, state.diameterMm / 1000);
+        const effectiveSlipFactor = Math.max(0.05, 1 - state.slipRatio);
+        const targetRpm = Math.round((bikeMs * 60) / (Math.PI * effectiveDiaM * effectiveSlipFactor));
+        setRpm(Math.min(9999, Math.max(1, targetRpm)));
+        // Re-sync bike speed to exact mathematical wheel speed
+        const exactMatchedMs = calculateLinearSpeedMs(state.rpm, state.diameterMm);
+        bikeEntity.setSpeed(exactMatchedMs * 3.6);
+        bikeSpeedInput.value = bikeEntity.speedKmh.toFixed(1);
+        bikeSpeedSlider.value = Math.round(bikeEntity.speedKmh);
+        bikeEntity.relativeOffsetPx = 0;
+        closeAllPopovers();
+        showToast(`Matched Wheel to Bike (${bikeEntity.speedKmh.toFixed(1)} km/h @ ${state.rpm} RPM)!`);
+      });
+
+      // Match Bike to Wheel (Decimal precision to match perfectly)
+      btnMatchBikeToWheel.addEventListener('click', () => {
+        const currentMs = calculateLinearSpeedMs(state.rpm, state.diameterMm);
+        const currentKmh = currentMs * 3.6;
+        updateBikeSpeedUI(currentKmh);
+        bikeEntity.relativeOffsetPx = 0;
+        closeAllPopovers();
+        showToast(`Matched Bike to Wheel (${currentKmh.toFixed(1)} km/h)!`);
+      });
+
+      btnLoadBikePreset.addEventListener('click', () => {
+        setDiameter(660); // 26" bike wheel
+        setRpm(160);       // ~20 km/h
+        updateBikeSpeedUI(20.0);
+        bikeEntity.relativeOffsetPx = 0;
+        closeAllPopovers();
+        showToast('Loaded 26" Bicycle Wheel (660mm, 160 RPM, 20 km/h)!');
+      });
+
+      // Presets
+      document.querySelectorAll('.preset-item').forEach(item => {
+        item.addEventListener('click', () => {
+          setRpm(item.dataset.rpm);
+          setDiameter(item.dataset.dia);
+          const spokes = item.dataset.spokes;
+          if (spokes) {
+            state.spokes = parseInt(spokes, 10);
+            spokesSelectGroup.querySelectorAll('.scale-btn').forEach(b => {
+              b.classList.toggle('active', b.dataset.spokes === spokes);
+            });
+          }
+          closeAllPopovers();
+          showToast(`Preset loaded: ${item.querySelector('span').textContent}`);
+        });
+      });
+
+      // 3D Entity Settings
+      wheel3DThicknessSlider.addEventListener('input', (e) => {
+        wheelEntity.thicknessPx = parseInt(e.target.value, 10);
+        wheel3DThicknessVal.textContent = `${wheelEntity.thicknessPx}px`;
+      });
+      wheel3DAxleSlider.addEventListener('input', (e) => {
+        wheelEntity.axleLengthPx = parseInt(e.target.value, 10);
+        wheel3DAxleVal.textContent = `${wheelEntity.axleLengthPx}px`;
+      });
+      wheel3DSpokeStyle.addEventListener('change', (e) => wheelEntity.spokeStyle = e.target.value);
+      wheel3DTreadStyle.addEventListener('change', (e) => wheelEntity.treadStyle = e.target.value);
+
+      // Slip Slider
+      slipSlider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        state.slipRatio = val / 100;
+        if (val === 0) {
+          popoverSlipVal.textContent = '0% (Pure Rolling)';
+          popoverSlipVal.style.color = 'var(--accent-green)';
+          btnSlipText.textContent = 'Slip: 0%';
+        } else if (val > 0) {
+          popoverSlipVal.textContent = `+${val}% (Wheelspin)`;
+          popoverSlipVal.style.color = 'var(--accent-amber)';
+          btnSlipText.textContent = `Slip: +${val}%`;
+        } else {
+          popoverSlipVal.textContent = `${val}% (Skidding)`;
+          popoverSlipVal.style.color = 'var(--accent-red)';
+          btnSlipText.textContent = `Skid: ${val}%`;
+        }
+      });
+
+      // Gearbox
+      function updateMotorCalc() {
+        const mRpm = Math.max(0, Number(calcMotorRpm.value) || 0);
+        const gRatio = Math.max(0.1, Number(calcGearRatio.value) || 1);
+        calcOutputRpm.textContent = `${Math.round(mRpm / gRatio)} RPM`;
+      }
+      calcMotorRpm.addEventListener('input', updateMotorCalc);
+      calcGearRatio.addEventListener('input', updateMotorCalc);
+      calcApplyBtn.addEventListener('click', () => {
+        const mRpm = Math.max(0, Number(calcMotorRpm.value) || 0);
+        const gRatio = Math.max(0.1, Number(calcGearRatio.value) || 1);
+        setRpm(Math.round(mRpm / gRatio));
+        closeAllPopovers();
+        showToast('Applied output RPM to wheel!');
+      });
+
+      // Layer Toggles
+      toggleAxes.addEventListener('change', (e) => state.showAxes = e.target.checked);
+      toggleGrid.addEventListener('change', (e) => state.showGrid = e.target.checked);
+      toggleCycloid.addEventListener('change', (e) => {
+        state.showCycloid = e.target.checked;
+        if (!state.showCycloid) state.cycloidPoints = [];
+      });
+      toggleVectors.addEventListener('change', (e) => state.showVectors = e.target.checked);
+      toggleContactPatch.addEventListener('change', (e) => state.showContactPatch = e.target.checked);
+      toggleGhostBike.addEventListener('change', (e) => state.showGhostBike = e.target.checked);
+
+      spokesSelectGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('.scale-btn');
+        if (!btn) return;
+        spokesSelectGroup.querySelectorAll('.scale-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.spokes = parseInt(btn.dataset.spokes, 10);
+      });
+
+      // Calibration Modal
+      btnOpenCalibrate.addEventListener('click', () => {
+        closeAllPopovers();
+        calibrationModal.classList.add('open');
+        updateCardGuideWidth();
+      });
+
+      function updateCardGuideWidth() {
+        const dpi = parseInt(dpiSlider.value, 10);
+        dpiValue.textContent = `${dpi} DPI`;
+        creditCardGuide.style.width = `${Math.round((85.6 / 25.4) * dpi)}px`;
+      }
+
+      dpiSlider.addEventListener('input', updateCardGuideWidth);
+      cancelCalibrateBtn.addEventListener('click', () => calibrationModal.classList.remove('open'));
+      applyCalibrateBtn.addEventListener('click', () => {
+        state.screenDpi = parseInt(dpiSlider.value, 10);
+        state.displayMode = 'true-size';
+        calibrationModal.classList.remove('open');
+        showToast('Applied 1:1 Physical Scale!');
+      });
+
+      function showToast(msg) {
+        toastNotice.textContent = msg;
+        toastNotice.classList.add('show');
+        setTimeout(() => toastNotice.classList.remove('show'), 2200);
+      }
+
+      copySpecBtn.addEventListener('click', () => {
+        const omega = calculateOmega(state.rpm);
+        const linearSpeedMs = calculateLinearSpeedMs(state.rpm, state.diameterMm);
+        const kmh = linearSpeedMs * 3.6;
+        const bikeRatio = (kmh / Math.max(0.1, bikeEntity.speedKmh)).toFixed(2);
+        const specMarkdown = `### Wheel Kinematics Specification
+| Parameter | Value |
+|---|---|
+| **Wheel Speed** | ${state.rpm} RPM |
+| **Tyre Diameter** | ${state.diameterMm} mm |
+| **Ground Linear Speed** | ${linearSpeedMs.toFixed(2)} m/s (${kmh.toFixed(1)} km/h) |
+| **vs Bicycle (${bikeEntity.speedKmh} km/h)** | **${bikeRatio}× of Bike Speed** |
+| **Angular Velocity** | ${omega.toFixed(2)} rad/s (${(state.rpm * 6).toFixed(1)} °/s) |
+| **Wheel Slip Ratio** | ${(state.slipRatio * 100).toFixed(0)}% |
+| **Distance Travelled** | ${state.distanceTraveledM.toFixed(2)} m |
+| **Total Revolutions** | ${state.revolutionsCount.toFixed(1)} revs |
+`;
+        navigator.clipboard.writeText(specMarkdown).then(() => {
+          closeAllPopovers();
+          showToast('📋 Kinematics spec copied to clipboard!');
+        }).catch(() => showToast('Failed to copy.'));
+      });
+
+      exportPngBtn.addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.download = `wheel_kinematics_${state.viewMode}_${state.rpm}rpm_${state.diameterMm}mm.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        closeAllPopovers();
+        showToast('📸 Snapshot image saved!');
+      });
+
+      // Keyboard Shortcuts
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+        if (e.code === 'Space') {
+          e.preventDefault();
+          playPauseBtn.click();
+        } else if (e.code === 'KeyR') {
+          reverseBtn.click();
+        } else if (e.code === 'KeyO') {
+          resetDistBtn.click();
+        } else if (e.code === 'KeyV') {
+          if (state.viewMode === '2d') btnView3D.click();
+          else btnView2D.click();
+        } else if (e.code === 'Escape') {
+          closeAllPopovers();
+          calibrationModal.classList.remove('open');
+        }
+      });
+
+    })();
+  </script>
+</body>
+</html>
